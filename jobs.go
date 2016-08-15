@@ -7,6 +7,8 @@ import (
 	"github.com/NebulousLabs/Sia/api"
 )
 
+// JobPeerConnectability will print an error to the log if the node has zero
+// peers at any time.
 func JobPeerConnectability(log chan interface{}) {
 	for {
 		time.Sleep(time.Second * 5)
@@ -18,8 +20,6 @@ func JobPeerConnectability(log chan interface{}) {
 		}
 		if len(info.Peers) == 0 {
 			log <- "JobPeerConnectability: node has zero peers..."
-		} else {
-			log <- "JobPeerConnectability: SUCCESS"
 		}
 	}
 }
