@@ -44,6 +44,7 @@ func main() {
 		for {
 			select {
 			case <-sigchan:
+				fmt.Println("Caught quit signal, quitting...")
 				siad.Process.Kill()
 				return
 			case err := <-j.errorlog:
@@ -52,14 +53,17 @@ func main() {
 		}
 	}()
 
+	fmt.Println("> Starting jobs...")
+
 	// Start up siad jobs
 	if *runGateway {
-		fmt.Println("running gateway connectability job...")
+		fmt.Println(">> running gateway connectability job...")
 		go j.gatewayConnectability()
 	}
 
 	// Wait for the siad process to return an error.  Ignore the error if it's a
 	// SIGKILL, since we issue the process SIGKILL on quit.
+	fmt.Println("> all jobs loaded.")
 	err = siad.Wait()
 	if err != nil && err.Error() != "signal: killed" {
 		panic(err)
