@@ -25,6 +25,7 @@ func NewSiad(siadPath string, datadir string) (*exec.Cmd, error) {
 func main() {
 	siadPath := flag.String("siad", "siad", "path to siad executable")
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
+	runMining := flag.Bool("mining", false, "enable mining test jobs")
 	flag.Parse()
 
 	// Create a new temporary directory for ephemeral data storage for this ant.
@@ -33,7 +34,7 @@ func main() {
 		panic(err)
 	}
 	defer func() {
-		err := os.Remove(datadir)
+		err := os.RemoveAll(datadir)
 		if err != nil {
 			panic(err)
 		}
@@ -45,8 +46,14 @@ func main() {
 		panic(err)
 	}
 
+	// Naively wait for the daemon to start.
+	time.Sleep(time.Second)
+
 	// Construct the job runner
-	j := NewJobRunner("localhost:9980", "")
+	j, err := NewJobRunner("localhost:9980", "")
+	if err != nil {
+		panic(err)
+	}
 
 	// Construct the signal channel and notify on it in the case of SIGINT
 	// (ctrl-c)
@@ -73,6 +80,10 @@ func main() {
 	if *runGateway {
 		fmt.Println(">> running gateway connectability job...")
 		go j.gatewayConnectability()
+	}
+	if *runMining {
+		fmt.Println(">> running mining job...")
+		go j.blockMining()
 	}
 
 	// Wait for the siad process to return an error.  Ignore the error if it's a
