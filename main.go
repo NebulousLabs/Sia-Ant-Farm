@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -11,9 +12,10 @@ import (
 
 // NewSiad spawns a new siad process using os/exec.  siadPath is the path to
 // Siad, passed directly to exec.Command.  An error is returned if starting
-// siad fails, otherwise a pointer to siad's os.Cmd object is returned.
-func NewSiad(siadPath string) (*exec.Cmd, error) {
-	cmd := exec.Command(siadPath)
+// siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
+// data directory `datadir` is passed as siad's `--sia-directory`
+func NewSiad(siadPath string, datadir string) (*exec.Cmd, error) {
+	cmd := exec.Command(siadPath, "--sia-directory", datadir)
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -25,14 +27,26 @@ func main() {
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
 	flag.Parse()
 
+	// Create a new temporary directory for ephemeral data storage for this ant.
+	datadir, err := ioutil.TempDir("", "sia-antfarm")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		err := os.Remove(datadir)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	// Construct a new siad instance
-	siad, err := NewSiad(*siadPath)
+	siad, err := NewSiad(*siadPath, datadir)
 	if err != nil {
 		panic(err)
 	}
 
 	// Construct the job runner
-	j := NewJobRunner()
+	j := NewJobRunner("localhost:9980", "")
 
 	// Construct the signal channel and notify on it in the case of SIGINT
 	// (ctrl-c)
@@ -68,4 +82,5 @@ func main() {
 	if err != nil && err.Error() != "signal: killed" {
 		panic(err)
 	}
+
 }

@@ -8,12 +8,14 @@ import (
 )
 
 type JobRunner struct {
+	client   *api.Client
 	errorlog chan interface{}
 }
 
-func NewJobRunner() *JobRunner {
+func NewJobRunner(apiaddr string, authpassword string) *JobRunner {
 	return &JobRunner{
 		errorlog: make(chan interface{}),
+		client:   api.NewClient(apiaddr, authpassword),
 	}
 }
 
@@ -23,7 +25,7 @@ func (j *JobRunner) gatewayConnectability() {
 	for {
 		time.Sleep(time.Second * 5)
 		var info api.GatewayGET
-		err := getAPI("/gateway", &info)
+		err := j.client.Get("/gateway", &info)
 		if err != nil {
 			j.errorlog <- fmt.Sprintf("Error in JobPeerConnectability: %v\n", err)
 			return
