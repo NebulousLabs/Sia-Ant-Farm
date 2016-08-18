@@ -8,6 +8,7 @@ import (
 	"github.com/NebulousLabs/Sia/types"
 )
 
+// A JobRunner is used to start up jobs on the running Sia node.
 type JobRunner struct {
 	client         *api.Client
 	errorlog       chan interface{}
@@ -36,14 +37,10 @@ func NewJobRunner(apiaddr string, authpassword string) (*JobRunner, error) {
 func (j *JobRunner) gatewayConnectability() {
 	for {
 		time.Sleep(time.Second * 5)
-		var info api.GatewayGET
-		err := j.client.Get("/gateway", &info)
+		err := j.client.Get("/gateway", nil)
 		if err != nil {
 			j.errorlog <- fmt.Sprintf("Error in JobPeerConnectability: %v\n", err)
 			return
-		}
-		if len(info.Peers) == 0 {
-			j.errorlog <- "JobPeerConnectability: node has zero peers..."
 		}
 	}
 }

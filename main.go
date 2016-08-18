@@ -1,21 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
-	"time"
 )
 
-// NewSiad spawns a new siad process using os/exec.  siadPath is the path to
-// Siad, passed directly to exec.Command.  An error is returned if starting
-// siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
-// data directory `datadir` is passed as siad's `--sia-directory`
-func NewSiad(siadPath string, datadir string) (*exec.Cmd, error) {
-	cmd := exec.Command(siadPath, "--sia-directory", datadir)
+// AntConfig contains fields to pass to a sia-ant job runner.
+type AntConfig struct {
+	Jobs []string `json: "jobs"`
+}
+
+// NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
+// `jobs` are passed as flags to sia-ant.
+func NewAnt(jobs []string) (*exec.Cmd, error) {
+	cmd := exec.Command("sia-ant", jobs...)
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -23,75 +24,47 @@ func NewSiad(siadPath string, datadir string) (*exec.Cmd, error) {
 }
 
 func main() {
-	siadPath := flag.String("siad", "siad", "path to siad executable")
-	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
-	runMining := flag.Bool("mining", false, "enable mining test jobs")
+	configPath := flag.String("config", "config.json", "path to the sia-antfarm configuration file")
+
 	flag.Parse()
 
-	// Create a new temporary directory for ephemeral data storage for this ant.
-	datadir, err := ioutil.TempDir("", "sia-antfarm")
+	// Read and decode the sia-antfarm configuration file.
+	var antConfigs []AntConfig
+	f, err := os.Open(*configPath)
 	if err != nil {
 		panic(err)
 	}
-	defer func() {
-		err := os.RemoveAll(datadir)
+	defer f.Close()
+
+	if err = json.NewDecoder(f).Decode(&antConfigs); err != nil {
+		panic(err)
+	}
+
+	// Start each sia-ant process with its assigned jobs from the config file.
+	var antProcesses []*os.Process
+	for _, config := range antConfigs {
+		antcmd, err := NewAnt(config.Jobs)
 		if err != nil {
 			panic(err)
 		}
-	}()
-
-	// Construct a new siad instance
-	siad, err := NewSiad(*siadPath, datadir)
-	if err != nil {
-		panic(err)
+		antProcesses = append(antProcesses, andcmd.Process)
 	}
 
-	// Naively wait for the daemon to start.
-	time.Sleep(time.Second)
-
-	// Construct the job runner
-	j, err := NewJobRunner("localhost:9980", "")
-	if err != nil {
-		panic(err)
-	}
-
-	// Construct the signal channel and notify on it in the case of SIGINT
-	// (ctrl-c)
+	// Signal each sia-ant process to exit when ctrl-c is input to sia-antfarm.
 	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.Interrupt)
+	signal.Notify(sigchan, os.interrupt)
 
-	// Concurrently print errors or kill siad and quit on ctrl-c
 	go func() {
-		for {
-			select {
-			case <-sigchan:
-				fmt.Println("Caught quit signal, quitting...")
-				siad.Process.Kill()
-				return
-			case err := <-j.errorlog:
-				fmt.Printf("%v: %v\n", time.Now(), err)
-			}
+		<-sigchan
+		for _, process := range antProcesses {
+			process.Kill()
 		}
 	}()
 
-	fmt.Println("> Starting jobs...")
-
-	// Start up siad jobs
-	if *runGateway {
-		fmt.Println(">> running gateway connectability job...")
-		go j.gatewayConnectability()
+	// Wait on the main thread for every sia-ant process to complete.
+	for _, process := range antProcesses {
+		if err = process.Wait(); err != nil && err.Error != "signal: killed" {
+			panic(err)
+		}
 	}
-	if *runMining {
-		fmt.Println(">> running mining job...")
-		go j.blockMining()
-	}
-
-	// Wait for the siad process to return an error.  Ignore the error if it's a
-	// SIGKILL, since we issue the process SIGKILL on quit.
-	fmt.Println("> all jobs loaded.")
-	err = siad.Wait()
-	if err != nil && err.Error() != "signal: killed" {
-		panic(err)
-	}
-
 }
