@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -41,29 +42,30 @@ func main() {
 	}
 
 	// Start each sia-ant process with its assigned jobs from the config file.
-	var antProcesses []*os.Process
+	fmt.Printf("Starting up %v ants...\n", len(antConfigs))
+	var antCommands []*exec.Cmd
 	for _, config := range antConfigs {
 		antcmd, err := NewAnt(config.Jobs)
 		if err != nil {
 			panic(err)
 		}
-		antProcesses = append(antProcesses, andcmd.Process)
+		antCommands = append(antCommands, antcmd)
 	}
 
 	// Signal each sia-ant process to exit when ctrl-c is input to sia-antfarm.
 	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.interrupt)
+	signal.Notify(sigchan, os.Interrupt)
 
 	go func() {
 		<-sigchan
-		for _, process := range antProcesses {
-			process.Kill()
+		for _, cmd := range antCommands {
+			cmd.Process.Kill()
 		}
 	}()
 
 	// Wait on the main thread for every sia-ant process to complete.
-	for _, process := range antProcesses {
-		if err = process.Wait(); err != nil && err.Error != "signal: killed" {
+	for _, cmd := range antCommands {
+		if err = cmd.Wait(); err != nil && err.Error() != "signal: killed" {
 			panic(err)
 		}
 	}
