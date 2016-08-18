@@ -18,6 +18,8 @@ type AntConfig struct {
 // `jobs` are passed as flags to sia-ant.
 func NewAnt(jobs []string) (*exec.Cmd, error) {
 	cmd := exec.Command("sia-ant", jobs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -49,24 +51,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		defer antcmd.Process.Kill()
 		antCommands = append(antCommands, antcmd)
 	}
 
-	// Signal each sia-ant process to exit when ctrl-c is input to sia-antfarm.
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
 
-	go func() {
-		<-sigchan
-		for _, cmd := range antCommands {
-			cmd.Process.Kill()
-		}
-	}()
-
-	// Wait on the main thread for every sia-ant process to complete.
-	for _, cmd := range antCommands {
-		if err = cmd.Wait(); err != nil && err.Error() != "signal: killed" {
-			panic(err)
-		}
-	}
+	<-sigchan
 }

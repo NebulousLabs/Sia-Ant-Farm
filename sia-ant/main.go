@@ -16,6 +16,8 @@ import (
 // data directory `datadir` is passed as siad's `--sia-directory`
 func NewSiad(siadPath string, datadir string) (*exec.Cmd, error) {
 	cmd := exec.Command(siadPath, "--sia-directory", datadir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
