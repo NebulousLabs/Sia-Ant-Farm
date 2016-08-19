@@ -19,7 +19,7 @@ type Siad struct {
 	cmd *exec.Cmd
 }
 
-// getAddrs returns n free listening ports on localhost by leveraging the
+// getAddrs returns n free listening addresses on localhost by leveraging the
 // behaviour of net.Listen("localhost:0").
 func getAddrs(n int) ([]string, error) {
 	var addrs []string
