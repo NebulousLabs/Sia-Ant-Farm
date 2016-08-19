@@ -69,6 +69,7 @@ func main() {
 
 	go func() {
 		<-sigchan
+		fmt.Println("Caught quit signal, stopping all ants...")
 		for _, cmd := range antCommands {
 			cmd.Process.Signal(os.Interrupt)
 		}
