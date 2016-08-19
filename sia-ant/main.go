@@ -38,8 +38,7 @@ func getAddrs(n int) ([]string, error) {
 // NewSiad spawns a new siad process using os/exec.  siadPath is the path to
 // Siad, passed directly to exec.Command.  An error is returned if starting
 // siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
-// data directory `datadir` is passed as siad's `--sia-directory`.  3 open
-// ports will be assigned as Sia's api, rpc, and host ports.
+// data directory `datadir` is passed as siad's `--sia-directory`.
 func NewSiad(siadPath string, datadir string) (*Siad, error) {
 	// get 3 available bind addresses
 	addrs, err := getAddrs(3)
@@ -82,7 +81,6 @@ func main() {
 	siad, err := NewSiad(*siadPath, datadir)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	// Naively wait for the daemon to start.
@@ -104,8 +102,7 @@ func main() {
 		for {
 			select {
 			case <-sigchan:
-				fmt.Println("Caught quit signal, quitting...")
-				siad.cmd.Process.Kill()
+				siad.cmd.Process.Signal(os.Interrupt)
 				return
 			case err := <-j.errorlog:
 				fmt.Printf("%v: %v\n", time.Now(), err)
@@ -132,5 +129,4 @@ func main() {
 	if err != nil && err.Error() != "signal: killed" {
 		panic(err)
 	}
-
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 )
 
 // AntConfig contains fields to pass to a sia-ant job runner.
@@ -17,7 +18,11 @@ type AntConfig struct {
 // NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
 // `jobs` are passed as flags to sia-ant.
 func NewAnt(jobs []string) (*exec.Cmd, error) {
-	cmd := exec.Command("sia-ant", jobs...)
+	var jobflags []string
+	for _, job := range jobs {
+		jobflags = append(jobflags, "-"+job)
+	}
+	cmd := exec.Command("sia-ant", jobflags...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -45,18 +50,30 @@ func main() {
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	fmt.Printf("Starting up %v ants...\n", len(antConfigs))
+	var wg sync.WaitGroup
 	var antCommands []*exec.Cmd
 	for _, config := range antConfigs {
 		antcmd, err := NewAnt(config.Jobs)
 		if err != nil {
 			panic(err)
 		}
-		defer antcmd.Process.Kill()
+		wg.Add(1)
 		antCommands = append(antCommands, antcmd)
+		go func() {
+			antcmd.Wait()
+			wg.Done()
+		}()
 	}
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
 
-	<-sigchan
+	go func() {
+		<-sigchan
+		for _, cmd := range antCommands {
+			cmd.Process.Signal(os.Interrupt)
+		}
+	}()
+
+	wg.Wait()
 }
