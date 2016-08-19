@@ -7,7 +7,6 @@ import (
 // A JobRunner is used to start up jobs on the running Sia node.
 type JobRunner struct {
 	client         *api.Client
-	errorlog       chan interface{}
 	walletPassword string
 }
 
@@ -16,8 +15,7 @@ type JobRunner struct {
 // initialized, and initializes a new wallet, for usage in the jobs.
 func NewJobRunner(apiaddr string, authpassword string) (*JobRunner, error) {
 	jr := &JobRunner{
-		errorlog: make(chan interface{}),
-		client:   api.NewClient(apiaddr, authpassword),
+		client: api.NewClient(apiaddr, authpassword),
 	}
 	var walletParams api.WalletInitPOST
 	err := jr.client.Post("/wallet/init", "", &walletParams)

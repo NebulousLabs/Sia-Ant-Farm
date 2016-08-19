@@ -99,15 +99,8 @@ func main() {
 
 	// Concurrently print errors or kill siad and quit on ctrl-c
 	go func() {
-		for {
-			select {
-			case <-sigchan:
-				siad.cmd.Process.Signal(os.Interrupt)
-				return
-			case err := <-j.errorlog:
-				fmt.Printf("%v: %v\n", time.Now(), err)
-			}
-		}
+		<-sigchan
+		siad.cmd.Process.Signal(os.Interrupt)
 	}()
 
 	fmt.Println("> Starting jobs...")

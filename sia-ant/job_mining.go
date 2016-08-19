@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
@@ -14,13 +15,13 @@ import (
 func (j *JobRunner) blockMining() {
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
-		j.errorlog <- fmt.Sprintf("Error in renterContractFormation: %v\n", err)
+		log.Printf("[blockMining ERROR]: %v\n", err)
 		return
 	}
 
 	err = j.client.Get("/miner/start", nil)
 	if err != nil {
-		j.errorlog <- fmt.Sprintf("Error in renterContractFormation: %v\n", err)
+		log.Printf("[blockMining ERROR]: %v\n", err)
 		return
 	}
 
@@ -28,13 +29,13 @@ func (j *JobRunner) blockMining() {
 	startTime := time.Now()
 	for {
 		if time.Since(startTime) > time.Second*100 {
-			j.errorlog <- "it took too long to mine a block to use in renterContractFormation"
+			log.Print("it took too long to mine a block to use in renterContractFormation")
 			return
 		}
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
-			j.errorlog <- err
+			log.Printf("[blockMining ERROR]: %v\n", err)
 			return
 		}
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(types.ZeroCurrency) > 0 {
@@ -43,5 +44,5 @@ func (j *JobRunner) blockMining() {
 		}
 		time.Sleep(time.Second)
 	}
-	j.errorlog <- "blockMining job succeeded"
+	log.Print("[SUCCESS] blockMining job succeeded")
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"time"
 )
 
@@ -12,7 +12,7 @@ func (j *JobRunner) gatewayConnectability() {
 		time.Sleep(time.Second * 5)
 		err := j.client.Get("/gateway", nil)
 		if err != nil {
-			j.errorlog <- fmt.Sprintf("Error in JobPeerConnectability: %v\n", err)
+			log.Printf("[gatewayConnectability ERROR]: %v\n", err)
 			return
 		}
 	}
