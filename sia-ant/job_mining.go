@@ -41,6 +41,7 @@ func (j *JobRunner) blockMining() {
 			// We have mined a block and now have money, continue
 			break
 		}
+		time.Sleep(time.Second)
 	}
 	j.errorlog <- "blockMining job succeeded"
 }

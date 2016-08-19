@@ -48,7 +48,6 @@ func main() {
 	}
 
 	// Start each sia-ant process with its assigned jobs from the config file.
-	fmt.Printf("Starting up %v ants...\n", len(antConfigs))
 	var wg sync.WaitGroup
 	var antCommands []*exec.Cmd
 	for antindex, config := range antConfigs {
@@ -75,6 +74,7 @@ func main() {
 			cmd.Process.Signal(os.Interrupt)
 		}
 	}()
+	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antConfigs))
 
 	wg.Wait()
 }
