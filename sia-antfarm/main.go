@@ -23,7 +23,6 @@ func NewAnt(jobs []string) (*exec.Cmd, error) {
 		jobflags = append(jobflags, "-"+job)
 	}
 	cmd := exec.Command("sia-ant", jobflags...)
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
