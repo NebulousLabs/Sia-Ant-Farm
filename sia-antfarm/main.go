@@ -74,6 +74,7 @@ func main() {
 			cmd.Process.Signal(os.Interrupt)
 		}
 	}()
+
 	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antConfigs))
 
 	wg.Wait()

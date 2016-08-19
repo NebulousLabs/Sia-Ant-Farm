@@ -97,7 +97,6 @@ func main() {
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt, os.Kill)
 
-	// Concurrently print errors or kill siad and quit on ctrl-c
 	go func() {
 		<-sigchan
 		siad.cmd.Process.Signal(os.Interrupt)
@@ -105,7 +104,7 @@ func main() {
 
 	fmt.Println("> Starting jobs...")
 
-	// Start up siad jobs
+	// Start up selected jobs
 	if *runGateway {
 		fmt.Println(">> running gateway connectability job...")
 		go j.gatewayConnectability()
