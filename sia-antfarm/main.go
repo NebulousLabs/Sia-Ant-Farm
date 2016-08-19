@@ -51,7 +51,8 @@ func main() {
 	fmt.Printf("Starting up %v ants...\n", len(antConfigs))
 	var wg sync.WaitGroup
 	var antCommands []*exec.Cmd
-	for _, config := range antConfigs {
+	for antindex, config := range antConfigs {
+		fmt.Printf("Starting ant %v with jobs %v\n", antindex, config.Jobs)
 		antcmd, err := NewAnt(config.Jobs)
 		if err != nil {
 			panic(err)
