@@ -36,19 +36,22 @@ func main() {
 	// Create a new temporary directory for ephemeral data storage for this ant.
 	datadir, err := ioutil.TempDir("", "sia-antfarm")
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "failed to create data directory: %v\n", err)
+		os.Exit(-1)
 	}
 	defer func() {
 		err := os.RemoveAll(datadir)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(os.Stderr, "error cleaning up data directory: %v\n", err)
+			os.Exit(-1)
 		}
 	}()
 
 	// Construct a new siad instance
 	siad, err := NewSiad(*siadPath, datadir, *apiAddr, *rpcAddr, *hostAddr)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
+		os.Exit(-1)
 	}
 
 	// Naively wait for the daemon to start.
@@ -57,7 +60,8 @@ func main() {
 	// Construct the job runner
 	j, err := NewJobRunner(*apiAddr, "")
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
+		os.Exit(-1)
 	}
 
 	// Construct the signal channel and notify on it in the case of SIGINT
@@ -70,23 +74,19 @@ func main() {
 		siad.Process.Kill()
 	}()
 
-	fmt.Println("> Starting jobs...")
-
 	// Start up selected jobs
 	if *runGateway {
-		fmt.Println(">> running gateway connectability job...")
 		go j.gatewayConnectability()
 	}
 	if *runMining {
-		fmt.Println(">> running mining job...")
 		go j.blockMining()
 	}
 
 	// Wait for the siad process to return an error.  Ignore the error if it's a
 	// SIGKILL, since we issue the process SIGKILL on quit.
-	fmt.Println("> all jobs loaded.")
 	err = siad.Wait()
 	if err != nil && err.Error() != "signal: killed" {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "siad ended unexpectedly: %v\n", err)
+		os.Exit(-1)
 	}
 }
