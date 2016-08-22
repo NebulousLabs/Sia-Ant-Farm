@@ -13,7 +13,10 @@ import (
 
 // AntConfig contains fields to pass to a sia-ant job runner.
 type AntConfig struct {
-	Jobs []string
+	APIAddr  string `json:",omitempty"`
+	RPCAddr  string `json:",omitempty"`
+	HostAddr string `json:",omitempty"`
+	Jobs     []string
 }
 
 // getAddrs returns n free listening addresses on localhost by leveraging the
@@ -33,17 +36,38 @@ func getAddrs(n int) ([]string, error) {
 }
 
 // NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
-// `jobs` are passed as flags to sia-ant.
-func NewAnt(jobs []string) (*exec.Cmd, error) {
+// `jobs` are passed as flags to sia-ant.  If APIAddr, RPCAddr, or HostAddr are
+// defined in `config`, they will be passed to the Ant.  Otherwise, the Ant
+// will be passed 3 unused addresses.
+func NewAnt(config AntConfig) (*exec.Cmd, error) {
 	var args []string
-	for _, job := range jobs {
+	for _, job := range config.Jobs {
 		args = append(args, "-"+job)
 	}
+
+	// Automatically generate 3 free operating system ports for the Ant's api,
+	// rpc, and host addresses
 	addrs, err := getAddrs(3)
 	if err != nil {
 		return nil, err
 	}
-	args = append(args, "-api-addr", addrs[0], "-rpc-addr", addrs[1], "-host-addr", addrs[2])
+	apiaddr := addrs[0]
+	rpcaddr := addrs[1]
+	hostaddr := addrs[2]
+
+	// Override the automatically generated addresses with the ones in AntConfig,
+	// if they exist.
+	if config.APIAddr != "" {
+		apiaddr = config.APIAddr
+	}
+	if config.RPCAddr != "" {
+		rpcaddr = config.RPCAddr
+	}
+	if config.HostAddr != "" {
+		hostaddr = config.HostAddr
+	}
+
+	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr)
 	cmd := exec.Command("sia-ant", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -76,7 +100,7 @@ func main() {
 	var antCommands []*exec.Cmd
 	for antindex, config := range antConfigs {
 		fmt.Printf("Starting ant %v with jobs %v\n", antindex, config.Jobs)
-		antcmd, err := NewAnt(config.Jobs)
+		antcmd, err := NewAnt(config)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error starting ant %v: %v\n", antindex, err)
 			os.Exit(1)
