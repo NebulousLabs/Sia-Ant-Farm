@@ -28,7 +28,7 @@ func (j *JobRunner) blockMining() {
 	// Mine a block and wait for the confirmed funds to appear in the wallet.
 	for start := time.Now(); time.Since(start) < 100*time.Second; time.Sleep(time.Second) {
 		if time.Since(startTime) > time.Second*100 {
-			log.Print("it took too long to mine a block to use in blockMining")
+			log.Print("[blockMining ERROR]: it took too long to mine a block to use in blockMining")
 			return
 		}
 		var walletInfo api.WalletGET
