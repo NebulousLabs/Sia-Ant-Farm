@@ -29,7 +29,7 @@ func (j *JobRunner) blockMining() {
 	startTime := time.Now()
 	for {
 		if time.Since(startTime) > time.Second*100 {
-			log.Print("it took too long to mine a block to use in renterContractFormation")
+			log.Print("it took too long to mine a block to use in blockMining")
 			return
 		}
 		var walletInfo api.WalletGET
