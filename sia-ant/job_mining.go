@@ -26,8 +26,7 @@ func (j *JobRunner) blockMining() {
 	}
 
 	// Mine a block and wait for the confirmed funds to appear in the wallet.
-	startTime := time.Now()
-	for {
+	for start := time.Now(); time.Since(start) < 100*time.Second; time.Sleep(time.Second) {
 		if time.Since(startTime) > time.Second*100 {
 			log.Print("it took too long to mine a block to use in blockMining")
 			return
@@ -42,7 +41,6 @@ func (j *JobRunner) blockMining() {
 			// We have mined a block and now have money, continue
 			break
 		}
-		time.Sleep(time.Second)
 	}
 	log.Print("[SUCCESS] blockMining job succeeded")
 }
