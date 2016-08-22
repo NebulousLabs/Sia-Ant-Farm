@@ -78,6 +78,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		defer func() {
+			antcmd.Process.Signal(os.Interrupt)
+		}()
 		wg.Add(1)
 		antCommands = append(antCommands, antcmd)
 		go func() {
