@@ -37,13 +37,13 @@ func main() {
 	datadir, err := ioutil.TempDir("", "sia-antfarm")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create data directory: %v\n", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	defer func() {
 		err := os.RemoveAll(datadir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error cleaning up data directory: %v\n", err)
-			os.Exit(-1)
+			os.Exit(1)
 		}
 	}()
 
@@ -51,7 +51,7 @@ func main() {
 	siad, err := NewSiad(*siadPath, datadir, *apiAddr, *rpcAddr, *hostAddr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	// Naively wait for the daemon to start.
@@ -61,7 +61,7 @@ func main() {
 	j, err := NewJobRunner(*apiAddr, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	// Construct the signal channel and notify on it in the case of SIGINT
@@ -87,6 +87,6 @@ func main() {
 	err = siad.Wait()
 	if err != nil && err.Error() != "signal: killed" {
 		fmt.Fprintf(os.Stderr, "siad ended unexpectedly: %v\n", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }

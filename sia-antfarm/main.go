@@ -62,12 +62,12 @@ func main() {
 	f, err := os.Open(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening %v: %v\n", *configPath, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	if err = json.NewDecoder(f).Decode(&antConfigs); err != nil {
 		fmt.Fprintf(os.Stderr, "error decoding %v: %v\n", *configPath, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	f.Close()
 
@@ -79,7 +79,7 @@ func main() {
 		antcmd, err := NewAnt(config.Jobs)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error starting ant %v: %v\n", antindex, err)
-			os.Exit(-1)
+			os.Exit(1)
 		}
 		defer func() {
 			antcmd.Process.Signal(os.Interrupt)
