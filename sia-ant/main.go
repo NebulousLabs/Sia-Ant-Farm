@@ -4,63 +4,31 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"time"
 )
 
-type Siad struct {
-	hostAddr string
-	rpcAddr  string
-	apiAddr  string
-
-	cmd *exec.Cmd
-}
-
-// getAddrs returns n free listening addresses on localhost by leveraging the
-// behaviour of net.Listen("localhost:0").
-func getAddrs(n int) ([]string, error) {
-	var addrs []string
-
-	for i := 0; i < n; i++ {
-		l, err := net.Listen("tcp", "localhost:0")
-		if err != nil {
-			return nil, err
-		}
-		defer l.Close()
-		addrs = append(addrs, l.Addr().String())
-	}
-	return addrs, nil
-}
-
 // NewSiad spawns a new siad process using os/exec.  siadPath is the path to
 // Siad, passed directly to exec.Command.  An error is returned if starting
 // siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
 // data directory `datadir` is passed as siad's `--sia-directory`.
-func NewSiad(siadPath string, datadir string) (*Siad, error) {
-	// get 3 available bind addresses
-	addrs, err := getAddrs(3)
-	if err != nil {
+func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
+	cmd := exec.Command(siadPath, "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	siad := &Siad{
-		apiAddr:  addrs[0],
-		rpcAddr:  addrs[1],
-		hostAddr: addrs[2],
-	}
-	siad.cmd = exec.Command(siadPath, "--sia-directory", datadir, "--api-addr", siad.apiAddr, "--rpc-addr", siad.rpcAddr, "--host-addr", siad.hostAddr)
-	siad.cmd.Stdout = os.Stdout
-	siad.cmd.Stderr = os.Stderr
-	if err := siad.cmd.Start(); err != nil {
-		return nil, err
-	}
-	return siad, nil
+	return cmd, nil
 }
 
 func main() {
 	siadPath := flag.String("siad", "siad", "path to siad executable")
+	apiAddr := flag.String("api-addr", "localhost:9980", "api address to bind siad")
+	rpcAddr := flag.String("rpc-addr", "localhost:9981", "rpc address to bind siad")
+	hostAddr := flag.String("host-addr", "localhost:9982", "host address to bind siad")
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
 	runMining := flag.Bool("mining", false, "enable mining test jobs")
 	flag.Parse()
@@ -78,7 +46,7 @@ func main() {
 	}()
 
 	// Construct a new siad instance
-	siad, err := NewSiad(*siadPath, datadir)
+	siad, err := NewSiad(*siadPath, datadir, *apiAddr, *rpcAddr, *hostAddr)
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +55,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Construct the job runner
-	j, err := NewJobRunner(siad.apiAddr, "")
+	j, err := NewJobRunner(*apiAddr, "")
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +67,7 @@ func main() {
 
 	go func() {
 		<-sigchan
-		siad.cmd.Process.Signal(os.Interrupt)
+		siad.Process.Signal(os.Interrupt)
 	}()
 
 	fmt.Println("> Starting jobs...")
@@ -117,7 +85,7 @@ func main() {
 	// Wait for the siad process to return an error.  Ignore the error if it's a
 	// SIGKILL, since we issue the process SIGKILL on quit.
 	fmt.Println("> all jobs loaded.")
-	err = siad.cmd.Wait()
+	err = siad.Wait()
 	if err != nil && err.Error() != "signal: killed" {
 		panic(err)
 	}

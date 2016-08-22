@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -15,14 +16,35 @@ type AntConfig struct {
 	Jobs []string `json: "jobs"`
 }
 
+// getAddrs returns n free listening addresses on localhost by leveraging the
+// behaviour of net.Listen("localhost:0").
+func getAddrs(n int) ([]string, error) {
+	var addrs []string
+
+	for i := 0; i < n; i++ {
+		l, err := net.Listen("tcp", "localhost:0")
+		if err != nil {
+			return nil, err
+		}
+		defer l.Close()
+		addrs = append(addrs, l.Addr().String())
+	}
+	return addrs, nil
+}
+
 // NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
 // `jobs` are passed as flags to sia-ant.
 func NewAnt(jobs []string) (*exec.Cmd, error) {
-	var jobflags []string
+	var args []string
 	for _, job := range jobs {
-		jobflags = append(jobflags, "-"+job)
+		args = append(args, "-"+job)
 	}
-	cmd := exec.Command("sia-ant", jobflags...)
+	addrs, err := getAddrs(3)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, "-api-addr", addrs[0], "-rpc-addr", addrs[1], "-host-addr", addrs[2])
+	cmd := exec.Command("sia-ant", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
