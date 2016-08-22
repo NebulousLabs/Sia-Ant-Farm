@@ -63,11 +63,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
 
 	if err = json.NewDecoder(f).Decode(&antConfigs); err != nil {
 		panic(err)
 	}
+	f.Close()
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup
