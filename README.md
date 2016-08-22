@@ -22,27 +22,27 @@ This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` 
 ```json
 [
 	{
-		"jobs": [
+		"Jobs": [
 			"gateway"
 		]
 	},
 	{
-		"jobs": [
+		"Jobs": [
 			"gateway"
 		]
 	},
 	{
-		"jobs": [
+		"Jobs": [
 			"gateway"
 		]
 	},
 	{
-		"jobs": [
+		"Jobs": [
 			"gateway"
 		]
 	},
 	{
-		"jobs": [
+		"Jobs": [
 			"gateway",
 			"mining"
 		]
@@ -56,5 +56,4 @@ This `config.json` creates 5 `sia-ants`, with four running the `gateway` job and
 # License
 
 The MIT License (MIT)
-
 
