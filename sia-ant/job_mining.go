@@ -26,11 +26,8 @@ func (j *JobRunner) blockMining() {
 	}
 
 	// Mine a block and wait for the confirmed funds to appear in the wallet.
+	success := false
 	for start := time.Now(); time.Since(start) < 100*time.Second; time.Sleep(time.Second) {
-		if time.Since(startTime) > time.Second*100 {
-			log.Print("[blockMining ERROR]: it took too long to mine a block to use in blockMining")
-			return
-		}
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
@@ -39,8 +36,13 @@ func (j *JobRunner) blockMining() {
 		}
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(types.ZeroCurrency) > 0 {
 			// We have mined a block and now have money, continue
+			success = true
 			break
 		}
 	}
-	log.Print("[SUCCESS] blockMining job succeeded")
+	if !success {
+		log.Print("[blockMining ERROR]: it took too long to mine a block to use in blockMining")
+	} else {
+		log.Print("[SUCCESS] blockMining job succeeded")
+	}
 }
