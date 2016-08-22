@@ -13,7 +13,7 @@ import (
 
 // AntConfig contains fields to pass to a sia-ant job runner.
 type AntConfig struct {
-	Jobs []string `json: "jobs"`
+	Jobs []string
 }
 
 // getAddrs returns n free listening addresses on localhost by leveraging the

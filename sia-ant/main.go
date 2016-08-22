@@ -67,7 +67,7 @@ func main() {
 
 	go func() {
 		<-sigchan
-		siad.Process.Signal(os.Interrupt)
+		siad.Process.Kill()
 	}()
 
 	fmt.Println("> Starting jobs...")
