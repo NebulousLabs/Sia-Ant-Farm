@@ -6,7 +6,12 @@ pkgs = ./sia-ant ./sia-antfarm
 fmt:
 	gofmt -s -l -w $(pkgs)
 
+vet:
+	go vet $(pkgs)
+
 # install builds and installs binaries.
 install:
 	go install -race $(pkgs)
 
+test:
+	go test -race -v $(pkgs)
