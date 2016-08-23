@@ -2,9 +2,6 @@ all: install
 
 dependencies:
 	go install -tags='dev' github.com/NebulousLabs/Sia/siad
-
-dev-dependencies:
-	go install -tags='dev' github.com/NebulousLabs/Sia/siad
 	go install -race std
 	go get -u github.com/golang/lint/golint
 
@@ -17,10 +14,10 @@ vet:
 	go vet $(pkgs)
 
 # install builds and installs binaries.
-install: dependencies
+install:
 	go install -race $(pkgs)
 
-test: dev-dependencies fmt vet
+test: fmt vet
 	go test -race -v $(pkgs)
 
 lint:
