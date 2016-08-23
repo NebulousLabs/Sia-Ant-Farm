@@ -46,14 +46,16 @@ func NewAnt(config AntConfig) (*exec.Cmd, error) {
 	for _, job := range config.Jobs {
 		args = append(args, "-"+job)
 	}
-	// Create a new temporary directory in the current working directory for this
-	// ant's data
-	siadir, err := ioutil.TempDir("./antfarm-data", "ant")
-	if err != nil {
-		return nil, err
-	}
-	if config.SiaDirectory != "" {
-		siadir = config.SiaDirectory
+
+	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
+	// temporary directory.
+	siadir := config.SiaDirectory
+	if siadir == "" {
+		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
+		if err != nil {
+			return nil, err
+		}
+		siadir = tempdir
 	}
 
 	// Automatically generate 3 free operating system ports for the Ant's api,
