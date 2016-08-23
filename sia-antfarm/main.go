@@ -48,7 +48,7 @@ func NewAnt(config AntConfig) (*exec.Cmd, error) {
 	}
 	// Create a new temporary directory in the current working directory for this
 	// ant's data
-	siadir, err := ioutil.TempDir("./", "antfarm-data")
+	siadir, err := ioutil.TempDir("./antfarm-data", "ant")
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +108,9 @@ func main() {
 		os.Exit(1)
 	}
 	f.Close()
+
+	// Clear out the old antfarm data before starting the new antfarm.
+	os.RemoveAll("./antfarm-data")
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup
