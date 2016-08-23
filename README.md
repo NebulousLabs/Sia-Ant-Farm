@@ -22,6 +22,9 @@ This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` 
 ```json
 [
 	{
+		"APIAddr": "localhost:9980",
+		"RPCAddr": "localhost:9981",
+		"HostAddr": "localhost:9982",
 		"Jobs": [
 			"gateway"
 		]
@@ -50,7 +53,9 @@ This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` 
 ]
 ```
 
-This `config.json` creates 5 `sia-ants`, with four running the `gateway` job and one running a `gateway` and a `mining` job. 
+This `config.json` creates 5 `sia-ants`, with four running the `gateway` job
+and one running a `gateway` and a `mining` job.  If `HostAddr`, `APIAddr`, or
+`RPCAddr` are not specified, they will be set to a random port. 
 
 
 # License
