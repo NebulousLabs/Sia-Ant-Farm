@@ -15,7 +15,7 @@ import (
 // siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
 // data directory `datadir` is passed as siad's `--sia-directory`.
 func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
-	cmd := exec.Command(siadPath, "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
+	cmd := exec.Command(siadPath, "--no-bootstrap", "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
