@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -13,10 +14,11 @@ import (
 
 // AntConfig contains fields to pass to a sia-ant job runner.
 type AntConfig struct {
-	APIAddr  string `json:",omitempty"`
-	RPCAddr  string `json:",omitempty"`
-	HostAddr string `json:",omitempty"`
-	Jobs     []string
+	APIAddr      string `json:",omitempty"`
+	RPCAddr      string `json:",omitempty"`
+	HostAddr     string `json:",omitempty"`
+	SiaDirectory string `json:",omitempty"`
+	Jobs         []string
 }
 
 // getAddrs returns n free listening addresses on localhost by leveraging the
@@ -45,6 +47,17 @@ func NewAnt(config AntConfig) (*exec.Cmd, error) {
 		args = append(args, "-"+job)
 	}
 
+	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
+	// temporary directory.
+	siadir := config.SiaDirectory
+	if siadir == "" {
+		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
+		if err != nil {
+			return nil, err
+		}
+		siadir = tempdir
+	}
+
 	// Automatically generate 3 free operating system ports for the Ant's api,
 	// rpc, and host addresses
 	addrs, err := getAddrs(3)
@@ -69,7 +82,7 @@ func NewAnt(config AntConfig) (*exec.Cmd, error) {
 
 	fmt.Printf("APIAddr: %v RPCAddr: %v HostAddr: %v\n", apiaddr, rpcaddr, hostaddr)
 
-	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr)
+	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr, "-sia-directory", siadir)
 	cmd := exec.Command("sia-ant", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -96,6 +109,13 @@ func main() {
 		os.Exit(1)
 	}
 	f.Close()
+
+	// Clear out the old antfarm data before starting the new antfarm.
+	os.RemoveAll("./antfarm-data")
+	if err = os.Mkdir("./antfarm-data", 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating antfarm data: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup

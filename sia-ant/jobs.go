@@ -8,14 +8,17 @@ import (
 type JobRunner struct {
 	client         *api.Client
 	walletPassword string
+	siaDirectory   string
 }
 
-// NewJobRunner creates a new job runner, using the provided api address and
-// authentication password.  It expects the connected api to be newly
-// initialized, and initializes a new wallet, for usage in the jobs.
-func NewJobRunner(apiaddr string, authpassword string) (*JobRunner, error) {
+// NewJobRunner creates a new job runner, using the provided api address,
+// authentication password, and sia directory.  It expects the connected api to
+// be newly initialized, and initializes a new wallet, for usage in the jobs.
+// siadirectory is used in logging to identify the job runner.
+func NewJobRunner(apiaddr string, authpassword string, siadirectory string) (*JobRunner, error) {
 	jr := &JobRunner{
-		client: api.NewClient(apiaddr, authpassword),
+		client:       api.NewClient(apiaddr, authpassword),
+		siaDirectory: siadirectory,
 	}
 	var walletParams api.WalletInitPOST
 	err := jr.client.Post("/wallet/init", "", &walletParams)

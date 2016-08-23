@@ -15,13 +15,13 @@ import (
 func (j *JobRunner) blockMining() {
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
-		log.Printf("[blockMining ERROR]: %v\n", err)
+		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		return
 	}
 
 	err = j.client.Get("/miner/start", nil)
 	if err != nil {
-		log.Printf("[blockMining ERROR]: %v\n", err)
+		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (j *JobRunner) blockMining() {
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
-			log.Printf("[blockMining ERROR]: %v\n", err)
+			log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 			return
 		}
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(types.ZeroCurrency) > 0 {
@@ -41,8 +41,8 @@ func (j *JobRunner) blockMining() {
 		}
 	}
 	if !success {
-		log.Print("[blockMining ERROR]: it took too long to mine a block to use in blockMining")
+		log.Printf("[%v blockMining ERROR]: it took too long to mine a block to use in blockMining\n", j.siaDirectory)
 	} else {
-		log.Print("[SUCCESS] blockMining job succeeded")
+		log.Printf("[%v SUCCESS] blockMining job succeeded", j.siaDirectory)
 	}
 }

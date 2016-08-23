@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -29,26 +28,13 @@ func main() {
 	apiAddr := flag.String("api-addr", "localhost:9980", "api address to bind siad")
 	rpcAddr := flag.String("rpc-addr", "localhost:9981", "rpc address to bind siad")
 	hostAddr := flag.String("host-addr", "localhost:9982", "host address to bind siad")
+	siaDirectory := flag.String("sia-directory", "./", "sia data directory")
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
 	runMining := flag.Bool("mining", false, "enable mining test jobs")
 	flag.Parse()
 
-	// Create a new temporary directory for ephemeral data storage for this ant.
-	datadir, err := ioutil.TempDir("", "sia-antfarm")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create data directory: %v\n", err)
-		os.Exit(1)
-	}
-	defer func() {
-		err := os.RemoveAll(datadir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error cleaning up data directory: %v\n", err)
-			os.Exit(1)
-		}
-	}()
-
 	// Construct a new siad instance
-	siad, err := NewSiad(*siadPath, datadir, *apiAddr, *rpcAddr, *hostAddr)
+	siad, err := NewSiad(*siadPath, *siaDirectory, *apiAddr, *rpcAddr, *hostAddr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
 		os.Exit(1)
@@ -58,7 +44,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Construct the job runner
-	j, err := NewJobRunner(*apiAddr, "")
+	j, err := NewJobRunner(*apiAddr, "", *siaDirectory)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
 		os.Exit(1)
