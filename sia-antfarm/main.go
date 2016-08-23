@@ -52,7 +52,6 @@ func NewAnt(config AntConfig) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if config.SiaDirectory != "" {
 		siadir = config.SiaDirectory
 	}
@@ -111,6 +110,10 @@ func main() {
 
 	// Clear out the old antfarm data before starting the new antfarm.
 	os.RemoveAll("./antfarm-data")
+	if err = os.Mkdir("./antfarm-data", 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating antfarm data: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup

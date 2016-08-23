@@ -12,7 +12,7 @@ func (j *JobRunner) gatewayConnectability() {
 		time.Sleep(time.Second * 5)
 		err := j.client.Get("/gateway", nil)
 		if err != nil {
-			log.Printf("[gatewayConnectability ERROR]: %v\n", err)
+			log.Printf("[%v gatewayConnectability ERROR]: %v\n", j.siaDirectory, err)
 			return
 		}
 	}

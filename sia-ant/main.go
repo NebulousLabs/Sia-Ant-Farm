@@ -44,7 +44,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Construct the job runner
-	j, err := NewJobRunner(*apiAddr, "")
+	j, err := NewJobRunner(*apiAddr, "", *siaDirectory)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
 		os.Exit(1)
