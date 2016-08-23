@@ -8,9 +8,10 @@ import (
 // TestSpawnAnt verifies that new ant processes are created correctly.
 func TestSpawnAnt(t *testing.T) {
 	testConfig := AntConfig{
-		APIAddr:  "localhost:10000",
-		RPCAddr:  "localhost:10001",
-		HostAddr: "localhost:10002",
+		APIAddr:      "localhost:10000",
+		RPCAddr:      "localhost:10001",
+		HostAddr:     "localhost:10002",
+		SiaDirectory: "/tmp/testdir",
 		Jobs: []string{
 			"gateway",
 		},
@@ -25,7 +26,7 @@ func TestSpawnAnt(t *testing.T) {
 		t.Fatal("first arg of NewAnt's command should be sia-ant")
 	}
 
-	var hasApiAddr, hasRPCAddr, hasHostAddr, hasGatewayJob bool
+	var hasApiAddr, hasRPCAddr, hasHostAddr, hasSiaDirectory, hasGatewayJob bool
 	for _, arg := range cmd.Args {
 		if arg == testConfig.APIAddr {
 			hasApiAddr = true
@@ -36,9 +37,15 @@ func TestSpawnAnt(t *testing.T) {
 		if arg == testConfig.HostAddr {
 			hasHostAddr = true
 		}
+		if arg == testConfig.SiaDirectory {
+			hasSiaDirectory = true
+		}
 		if arg == "-"+testConfig.Jobs[0] {
 			hasGatewayJob = true
 		}
+	}
+	if !hasSiaDirectory {
+		t.Fatal("NewAnt did not pass sia-directory flag to sia-ant")
 	}
 	if !hasApiAddr {
 		t.Fatal("NewAnt did not pass api addr flag to sia-ant")
