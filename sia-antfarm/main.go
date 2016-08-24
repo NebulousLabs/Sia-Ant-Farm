@@ -21,6 +21,12 @@ type AntConfig struct {
 	Jobs         []string
 }
 
+// Ant defines the fields used by a Sia Ant.
+type Ant struct {
+	rpcaddr string
+	cmd     *exec.Cmd
+}
+
 // getAddrs returns n free listening addresses on localhost by leveraging the
 // behaviour of net.Listen("localhost:0").
 func getAddrs(n int) ([]string, error) {
