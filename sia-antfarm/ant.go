@@ -34,7 +34,8 @@ func getAddrs(n int) ([]string, error) {
 	return addrs, nil
 }
 
-// connectAnts calls /gateway/connect to connect every ant to every other ant.
+// connectAnts connects two or more ants to the first ant in the slice,
+// effectively bootstrapping the antfarm.
 func connectAnts(ants ...*Ant) error {
 	if len(ants) < 2 {
 		return errors.New("you must call connectAnts with at least two ants.")
