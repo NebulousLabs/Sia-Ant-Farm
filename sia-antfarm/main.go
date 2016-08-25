@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 	"sync"
+	"time"
 )
 
 // AntConfig contains fields to pass to a sia-ant job runner.
@@ -21,74 +19,10 @@ type AntConfig struct {
 	Jobs         []string
 }
 
-// getAddrs returns n free listening addresses on localhost by leveraging the
-// behaviour of net.Listen("localhost:0").
-func getAddrs(n int) ([]string, error) {
-	var addrs []string
-
-	for i := 0; i < n; i++ {
-		l, err := net.Listen("tcp", "localhost:0")
-		if err != nil {
-			return nil, err
-		}
-		defer l.Close()
-		addrs = append(addrs, l.Addr().String())
-	}
-	return addrs, nil
-}
-
-// NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
-// `jobs` are passed as flags to sia-ant.  If APIAddr, RPCAddr, or HostAddr are
-// defined in `config`, they will be passed to the Ant.  Otherwise, the Ant
-// will be passed 3 unused addresses.
-func NewAnt(config AntConfig) (*exec.Cmd, error) {
-	var args []string
-	for _, job := range config.Jobs {
-		args = append(args, "-"+job)
-	}
-
-	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
-	// temporary directory.
-	siadir := config.SiaDirectory
-	if siadir == "" {
-		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
-		if err != nil {
-			return nil, err
-		}
-		siadir = tempdir
-	}
-
-	// Automatically generate 3 free operating system ports for the Ant's api,
-	// rpc, and host addresses
-	addrs, err := getAddrs(3)
-	if err != nil {
-		return nil, err
-	}
-	apiaddr := addrs[0]
-	rpcaddr := addrs[1]
-	hostaddr := addrs[2]
-
-	// Override the automatically generated addresses with the ones in AntConfig,
-	// if they exist.
-	if config.APIAddr != "" {
-		apiaddr = config.APIAddr
-	}
-	if config.RPCAddr != "" {
-		rpcaddr = config.RPCAddr
-	}
-	if config.HostAddr != "" {
-		hostaddr = config.HostAddr
-	}
-
-	fmt.Printf("APIAddr: %v RPCAddr: %v HostAddr: %v\n", apiaddr, rpcaddr, hostaddr)
-
-	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr, "-sia-directory", siadir)
-	cmd := exec.Command("sia-ant", args...)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	return cmd, nil
+// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
+type AntfarmConfig struct {
+	AntConfigs  []AntConfig
+	AutoConnect bool
 }
 
 func main() {
@@ -97,14 +31,14 @@ func main() {
 	flag.Parse()
 
 	// Read and decode the sia-antfarm configuration file.
-	var antConfigs []AntConfig
+	var antfarmConfig AntfarmConfig
 	f, err := os.Open(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening %v: %v\n", *configPath, err)
 		os.Exit(1)
 	}
 
-	if err = json.NewDecoder(f).Decode(&antConfigs); err != nil {
+	if err = json.NewDecoder(f).Decode(&antfarmConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "error decoding %v: %v\n", *configPath, err)
 		os.Exit(1)
 	}
@@ -112,15 +46,11 @@ func main() {
 
 	// Clear out the old antfarm data before starting the new antfarm.
 	os.RemoveAll("./antfarm-data")
-	if err = os.Mkdir("./antfarm-data", 0700); err != nil {
-		fmt.Fprintf(os.Stderr, "error creating antfarm data: %v\n", err)
-		os.Exit(1)
-	}
 
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup
-	var antCommands []*exec.Cmd
-	for antindex, config := range antConfigs {
+	var ants []*Ant
+	for antindex, config := range antfarmConfig.AntConfigs {
 		fmt.Printf("Starting ant %v with jobs %v\n", antindex, config.Jobs)
 		antcmd, err := NewAnt(config)
 		if err != nil {
@@ -131,11 +61,20 @@ func main() {
 			antcmd.Process.Signal(os.Interrupt)
 		}()
 		wg.Add(1)
-		antCommands = append(antCommands, antcmd)
+		ants = append(ants, antcmd)
 		go func() {
 			antcmd.Wait()
 			wg.Done()
 		}()
+	}
+
+	// Naively wait for all the ants apis to become available
+	time.Sleep(time.Second)
+
+	if antfarmConfig.AutoConnect {
+		if err = connectAnts(ants...); err != nil {
+			fmt.Fprintf(os.Stderr, "error connecting ant: %v\n", err)
+		}
 	}
 
 	sigchan := make(chan os.Signal, 1)
@@ -144,12 +83,12 @@ func main() {
 	go func() {
 		<-sigchan
 		fmt.Println("Caught quit signal, stopping all ants...")
-		for _, cmd := range antCommands {
+		for _, cmd := range ants {
 			cmd.Process.Signal(os.Interrupt)
 		}
 	}()
 
-	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antConfigs))
+	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antfarmConfig.AntConfigs))
 
 	wg.Wait()
 }

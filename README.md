@@ -20,42 +20,46 @@ This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` 
 
 `config.json:`
 ```json
-[
-	{
-		"APIAddr": "localhost:9980",
-		"RPCAddr": "localhost:9981",
-		"HostAddr": "localhost:9982",
-		"Jobs": [
-			"gateway"
-		]
-	},
-	{
-		"Jobs": [
-			"gateway"
-		]
-	},
-	{
-		"Jobs": [
-			"gateway"
-		]
-	},
-	{
-		"Jobs": [
-			"gateway"
-		]
-	},
-	{
-		"Jobs": [
-			"gateway",
-			"mining"
-		]
-	}
-]
+{
+	"antconfigs": 
+	[ 
+		{
+			"jobs": [
+				"gateway"
+			]
+		},
+		{
+			"jobs": [
+				"gateway"
+			]
+		},
+		{
+			"jobs": [
+				"gateway"
+			]
+		},
+		{
+			"jobs": [
+				"gateway"
+			]
+		},
+		{
+			"apiaddr": "127.0.0.1:9980",
+			"jobs": [
+				"gateway",
+				"mining"
+			]
+		}
+	],
+	"autoconnect": true
+}
 ```
 
 This `config.json` creates 5 `sia-ants`, with four running the `gateway` job
 and one running a `gateway` and a `mining` job.  If `HostAddr`, `APIAddr`, or
-`RPCAddr` are not specified, they will be set to a random port. 
+`RPCAddr` are not specified, they will be set to a random port.  If
+`autoconnect` is set to `false`, the ants will not automatically be made peers
+of eachother.
 
 
 # License
