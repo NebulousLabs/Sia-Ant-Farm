@@ -28,7 +28,6 @@ func (j *JobRunner) jobHost() {
 
 	// Mine at least 50,000 SC
 	desiredbalance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-	balance := types.NewCurrency64(0)
 	for {
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
@@ -36,10 +35,9 @@ func (j *JobRunner) jobHost() {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 			return
 		}
-		if balance.Cmp(desiredbalance) > 0 {
+		if walletInfo.ConfirmedSiacoinBalance.Cmp(desiredbalance) > 0 {
 			break
 		}
-		balance = walletInfo.ConfirmedSiacoinBalance
 		time.Sleep(time.Second)
 	}
 
