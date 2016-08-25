@@ -63,6 +63,13 @@ func (j *JobRunner) jobHost() {
 		return
 	}
 
+	// Accept contracts
+	err = j.client.Post("/host", "acceptingcontracts=true", nil)
+	if err != nil {
+		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
+		return
+	}
+
 	// Poll the API for host settings, logging them out with `INFO` tags.  If
 	// `StorageRevenue` decreases, log an ERROR.
 	maxRevenue := types.NewCurrency64(0)
