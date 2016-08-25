@@ -19,20 +19,26 @@ type AntConfig struct {
 	Jobs         []string
 }
 
+// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
+type AntfarmConfig struct {
+	AntConfigs  []AntConfig
+	AutoConnect bool
+}
+
 func main() {
 	configPath := flag.String("config", "config.json", "path to the sia-antfarm configuration file")
 
 	flag.Parse()
 
 	// Read and decode the sia-antfarm configuration file.
-	var antConfigs []AntConfig
+	var antfarmConfig AntfarmConfig
 	f, err := os.Open(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening %v: %v\n", *configPath, err)
 		os.Exit(1)
 	}
 
-	if err = json.NewDecoder(f).Decode(&antConfigs); err != nil {
+	if err = json.NewDecoder(f).Decode(&antfarmConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "error decoding %v: %v\n", *configPath, err)
 		os.Exit(1)
 	}
@@ -44,7 +50,7 @@ func main() {
 	// Start each sia-ant process with its assigned jobs from the config file.
 	var wg sync.WaitGroup
 	var ants []*Ant
-	for antindex, config := range antConfigs {
+	for antindex, config := range antfarmConfig.AntConfigs {
 		fmt.Printf("Starting ant %v with jobs %v\n", antindex, config.Jobs)
 		antcmd, err := NewAnt(config)
 		if err != nil {
@@ -64,8 +70,11 @@ func main() {
 
 	// Naively wait for all the ants apis to become available
 	time.Sleep(time.Second)
-	if err = connectAnts(ants...); err != nil {
-		fmt.Fprintf(os.Stderr, "error connecting ant: %v\n", err)
+
+	if antfarmConfig.AutoConnect {
+		if err = connectAnts(ants...); err != nil {
+			fmt.Fprintf(os.Stderr, "error connecting ant: %v\n", err)
+		}
 	}
 
 	sigchan := make(chan os.Signal, 1)
@@ -79,7 +88,7 @@ func main() {
 		}
 	}()
 
-	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antConfigs))
+	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antfarmConfig.AntConfigs))
 
 	wg.Wait()
 }
