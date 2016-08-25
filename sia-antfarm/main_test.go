@@ -71,56 +71,42 @@ func TestConnectAnts(t *testing.T) {
 		t.Fatal("connectAnts didnt throw an error with only one ant")
 	}
 
-	// Spin up three ants and test that connectAnts connects the last two to the first one.
+	n_ants := 5
 	config := AntConfig{}
-	ant0, err := NewAnt(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ant0.Process.Signal(os.Interrupt)
+	var ants []*Ant
 
-	ant1, err := NewAnt(config)
-	if err != nil {
-		t.Fatal(err)
+	for i := 0; i < n_ants; i++ {
+		ant, err := NewAnt(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ant.Process.Signal(os.Interrupt)
+		ants = append(ants, ant)
 	}
-	defer ant1.Process.Signal(os.Interrupt)
-
-	ant2, err := NewAnt(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ant2.Process.Signal(os.Interrupt)
 
 	// Allow some time for their APIs to become available
 	time.Sleep(time.Second * 5)
-	err = connectAnts(ant0, ant1, ant2)
+	err := connectAnts(ants...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c := api.NewClient(ant0.apiaddr, "")
+	c := api.NewClient(ants[0].apiaddr, "")
 	var gatewayInfo api.GatewayGET
 	err = c.Get("/gateway", &gatewayInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(gatewayInfo.Peers) != 2 {
-		t.Fatal("expected ant0 gatewayInfo to have the two peers we connected")
-	}
 
-	var hasAnt1, hasAnt2 bool
-	for _, peer := range gatewayInfo.Peers {
-		if fmt.Sprintf("%s", peer.NetAddress) == ant1.rpcaddr {
-			hasAnt1 = true
+	for _, ant := range ants[1:] {
+		hasAddr := false
+		for _, peer := range gatewayInfo.Peers {
+			if fmt.Sprintf("%s", peer.NetAddress) == ant.rpcaddr {
+				hasAddr = true
+			}
 		}
-		if fmt.Sprintf("%s", peer.NetAddress) == ant2.rpcaddr {
-			hasAnt2 = true
+		if !hasAddr {
+			t.Fatalf("the central ant is missing %v", ant.rpcaddr)
 		}
-	}
-	if !hasAnt1 {
-		t.Fatal("expected ant0 to have ant1 as a peer")
-	}
-	if !hasAnt2 {
-		t.Fatal("expected ant0 to have and2 as a peer")
 	}
 }

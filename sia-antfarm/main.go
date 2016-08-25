@@ -54,8 +54,8 @@ func connectAnts(ants ...*Ant) error {
 		return errors.New("you must call connectAnts with at least two ants.")
 	}
 	targetAnt := ants[0]
+	c := api.NewClient(targetAnt.apiaddr, "")
 	for _, ant := range ants[1:] {
-		c := api.NewClient(targetAnt.apiaddr, "")
 		err := c.Post(fmt.Sprintf("/gateway/connect/%v", ant.rpcaddr), "", nil)
 		if err != nil {
 			return err
