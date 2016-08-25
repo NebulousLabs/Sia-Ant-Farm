@@ -66,7 +66,7 @@ func (j *JobRunner) jobHost() {
 		return
 	}
 
-	// Poll the host API and log total storage
+	maxRevenue := types.NewCurrency64(0)
 	for {
 		var hostInfo api.HostGET
 		err = j.client.Get("/host", &hostInfo)
@@ -75,6 +75,15 @@ func (j *JobRunner) jobHost() {
 			return
 		}
 		log.Printf("[%v jobHost INFO]: %v", j.siaDirectory, hostInfo.NetworkMetrics)
+
+		// Print an error if storage revenue has decreased
+		if hostInfo.FinancialMetrics.StorageRevenue.Cmp(maxRevenue) > 0 {
+			maxRevenue = hostInfo.FinancialMetrics.StorageRevenue
+		} else {
+			// Storage revenue has decreased!
+			log.Printf("[%v jobHost ERROR]: StorageRevenue decreased!  was %v is now %v\n", j.siaDirectory, maxRevenue, hostInfo.FinancialMetrics.StorageRevenue)
+		}
+
 		time.Sleep(time.Second * 5)
 	}
 }
