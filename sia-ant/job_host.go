@@ -51,8 +51,7 @@ func (j *JobRunner) jobHost() {
 	}
 	defer os.RemoveAll(hostdir)
 
-	// For now, hard code some sane host settings for this job.  In the future,
-	// this job can take args to determine these settings.
+	// Add the storage folder.
 	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000"), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
@@ -66,6 +65,8 @@ func (j *JobRunner) jobHost() {
 		return
 	}
 
+	// Poll the API for host settings, logging them out with `INFO` tags.  If
+	// `StorageRevenue` decreases, log an ERROR.
 	maxRevenue := types.NewCurrency64(0)
 	for {
 		var hostInfo api.HostGET
