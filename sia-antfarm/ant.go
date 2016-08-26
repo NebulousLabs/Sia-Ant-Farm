@@ -107,11 +107,15 @@ func NewAnt(config AntConfig) (*Ant, error) {
 
 	// Wait for the Sia API to become available
 	c := api.NewClient(apiaddr, "")
-	for {
+	success := false
+	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
 		if err := c.Get("/consensus", nil); err == nil {
 			break
 		}
-		time.Sleep(time.Millisecond * 100)
+	}
+	if !success {
+		cmd.Process.Kill()
+		return errors.New("timeout: couldnt reach api after 5 minutes")
 	}
 
 	return &Ant{apiaddr, rpcaddr, cmd}, nil
