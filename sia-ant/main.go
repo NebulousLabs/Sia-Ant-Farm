@@ -29,7 +29,7 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	signal.Notify(sigchan, os.Interrupt)
 	go func() {
 		<-sigchan
-		cmd.Process.Kill()
+		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
 	}()
 
 	// Wait for the Sia API to become available.
@@ -42,7 +42,7 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 		}
 	}
 	if !success {
-		cmd.Process.Kill()
+		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
 		return nil, errors.New("timeout: couldnt reach api after 5 minutes")
 	}
 	return cmd, nil
@@ -57,7 +57,9 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
 		return 1
 	}
-	defer siad.Process.Kill()
+	defer func() {
+		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
+	}()
 
 	// Construct the job runner
 	j, err := NewJobRunner(apiAddr, "", siaDirectory)
