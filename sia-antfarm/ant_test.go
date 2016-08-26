@@ -17,9 +17,9 @@ func TestStartAnts(t *testing.T) {
 	}
 
 	configs := []AntConfig{
-		AntConfig{},
-		AntConfig{},
-		AntConfig{},
+		{},
+		{},
+		{},
 	}
 
 	ants, err := startAnts(configs...)
@@ -72,12 +72,6 @@ func TestSpawnAnt(t *testing.T) {
 		cmd.Process.Signal(os.Interrupt)
 		cmd.Wait()
 	}()
-
-	// Verify the API is reachable after NewAnt returns
-	c := api.NewClient(cmd.apiaddr, "")
-	if err = c.Get("/consensus", nil); err != nil {
-		t.Fatal(err)
-	}
 
 	if cmd.Args[0] != "sia-ant" {
 		t.Fatal("first arg of NewAnt's command should be sia-ant")
