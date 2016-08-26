@@ -28,7 +28,8 @@ func (j *JobRunner) jobHost() {
 
 	// Mine at least 50,000 SC
 	desiredbalance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-	for {
+	success := false
+	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Second) {
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
@@ -36,9 +37,14 @@ func (j *JobRunner) jobHost() {
 			return
 		}
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(desiredbalance) > 0 {
+			success = true
 			break
 		}
-		time.Sleep(time.Second)
+	}
+
+	if !success {
+		log.Printf("[%v jobHost ERROR]: timeout: could not mine enough currency after 5 minutes\n", j.siaDirectory)
+		return
 	}
 
 	// Create a temporary folder for hosting
