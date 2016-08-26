@@ -36,7 +36,7 @@ func TestSpawnAnt(t *testing.T) {
 		cmd.Wait()
 	}()
 
-	// Verify the API is reachable after NewAnt s
+	// Verify the API is reachable after NewAnt returns
 	c := api.NewClient(cmd.apiaddr, "")
 	if err = c.Get("/consensus", nil); err != nil {
 		t.Fatal(err)
