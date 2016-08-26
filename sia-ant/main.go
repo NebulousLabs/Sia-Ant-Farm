@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -37,14 +38,14 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	success := false
 	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
 		if err := c.Get("/consensus", nil); err == nil {
+			success = true
 			break
 		}
 	}
 	if !success {
 		cmd.Process.Kill()
-		return errors.New("timeout: couldnt reach api after 5 minutes")
+		return nil, errors.New("timeout: couldnt reach api after 5 minutes")
 	}
-
 	return cmd, nil
 }
 

@@ -11,6 +11,10 @@ import (
 
 // TestSpawnAnt verifies that new ant processes are created correctly.
 func TestSpawnAnt(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	datadir, err := ioutil.TempDir("", "sia-testing")
 	if err != nil {
 		t.Fatal(err)
@@ -82,6 +86,10 @@ func TestSpawnAnt(t *testing.T) {
 }
 
 func TestConnectAnts(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	// connectAnts should throw an error if only one ant is provided
 	if err := connectAnts(&Ant{}); err == nil {
 		t.Fatal("connectAnts didnt throw an error with only one ant")
