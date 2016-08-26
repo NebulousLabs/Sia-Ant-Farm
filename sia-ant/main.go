@@ -9,10 +9,11 @@ import (
 	"time"
 )
 
-// NewSiad spawns a new siad process using os/exec.  siadPath is the path to
-// Siad, passed directly to exec.Command.  An error is returned if starting
-// siad fails, otherwise a pointer to siad's os.Cmd object is returned.  The
-// data directory `datadir` is passed as siad's `--sia-directory`.
+// NewSiad spawns a new siad process using os/exec and waits for the api to
+// become available.  siadPath is the path to Siad, passed directly to
+// exec.Command.  An error is returned if starting siad fails, otherwise a
+// pointer to siad's os.Cmd object is returned.  The data directory `datadir`
+// is passed as siad's `--sia-directory`.
 func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
 	cmd := exec.Command(siadPath, "--no-bootstrap", "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
 	cmd.Stdout = os.Stdout
@@ -20,6 +21,7 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+
 	return cmd, nil
 }
 
