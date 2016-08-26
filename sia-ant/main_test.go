@@ -22,12 +22,13 @@ func TestNewSiad(t *testing.T) {
 
 	siad, err := NewSiad("siad", datadir, "localhost:9990", "localhost:0", "localhost:0")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return
 	}
 	defer siad.Process.Kill()
 
 	c := api.NewClient("localhost:9990", "")
 	if err := c.Get("/consensus", nil); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 }

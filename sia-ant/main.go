@@ -18,13 +18,21 @@ import (
 // is passed as siad's `--sia-directory`.
 func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
 	cmd := exec.Command(siadPath, "--no-bootstrap", "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
 
-	// Wait for the Sia api to become available.
+	// Kill siad when sia-ant receives an interrupt signal
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, os.Interrupt)
+	go func() {
+		<-sigchan
+		cmd.Process.Kill()
+		os.Exit(0)
+	}()
+
+	// Wait for the Sia API to become available.
 	c := api.NewClient(apiAddr, "")
 	for {
 		if err := c.Get("/consensus", nil); err == nil {
@@ -34,6 +42,36 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	}
 
 	return cmd, nil
+}
+
+// runSiaAnt is the main entry point of the sia-ant program, and returns an
+// exit code.
+func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGateway bool, runMining bool) int {
+	// Construct a new siad instance
+	siad, err := NewSiad(siadPath, siaDirectory, apiAddr, rpcAddr, hostAddr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
+		return 1
+	}
+	defer siad.Process.Kill()
+
+	// Construct the job runner
+	j, err := NewJobRunner(apiAddr, "", siaDirectory)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
+		return 1
+	}
+
+	// Start up selected jobs
+	if runGateway {
+		go j.gatewayConnectability()
+	}
+	if runMining {
+		go j.blockMining()
+	}
+
+	siad.Wait()
+	return 0
 }
 
 func main() {
@@ -46,43 +84,5 @@ func main() {
 	runMining := flag.Bool("mining", false, "enable mining test jobs")
 	flag.Parse()
 
-	// Construct a new siad instance
-	siad, err := NewSiad(*siadPath, *siaDirectory, *apiAddr, *rpcAddr, *hostAddr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Construct the job runner
-	j, err := NewJobRunner(*apiAddr, "", *siaDirectory)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Construct the signal channel and notify on it in the case of SIGINT
-	// (ctrl-c) or SIGKILL
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.Interrupt, os.Kill)
-
-	go func() {
-		<-sigchan
-		siad.Process.Kill()
-	}()
-
-	// Start up selected jobs
-	if *runGateway {
-		go j.gatewayConnectability()
-	}
-	if *runMining {
-		go j.blockMining()
-	}
-
-	// Wait for the siad process to return an error.  Ignore the error if it's a
-	// SIGKILL, since we issue the process SIGKILL on quit.
-	err = siad.Wait()
-	if err != nil && err.Error() != "signal: killed" {
-		fmt.Fprintf(os.Stderr, "siad ended unexpectedly: %v\n", err)
-		os.Exit(1)
-	}
+	os.Exit(runSiaAnt(*siadPath, *apiAddr, *rpcAddr, *hostAddr, *siaDirectory, *runGateway, *runMining))
 }

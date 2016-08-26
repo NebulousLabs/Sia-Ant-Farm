@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -10,22 +11,32 @@ import (
 
 // TestSpawnAnt verifies that new ant processes are created correctly.
 func TestSpawnAnt(t *testing.T) {
+	datadir, err := ioutil.TempDir("", "sia-testing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(datadir)
+
 	testConfig := AntConfig{
 		APIAddr:      "localhost:10000",
 		RPCAddr:      "localhost:10001",
 		HostAddr:     "localhost:10002",
-		SiaDirectory: "/tmp/testdir",
+		SiaDirectory: datadir,
 		Jobs: []string{
 			"gateway",
 		},
 	}
+
 	cmd, err := NewAnt(testConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cmd.Process.Signal(os.Interrupt)
+	defer func() {
+		cmd.Process.Signal(os.Interrupt)
+		cmd.Wait()
+	}()
 
-	// Verify the API is reachable after NewAnt returns
+	// Verify the API is reachable after NewAnt s
 	c := api.NewClient(cmd.apiaddr, "")
 	if err = c.Get("/consensus", nil); err != nil {
 		t.Fatal(err)
@@ -85,7 +96,10 @@ func TestConnectAnts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer ant.Process.Signal(os.Interrupt)
+		defer func() {
+			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
+		}()
 		ants = append(ants, ant)
 	}
 
