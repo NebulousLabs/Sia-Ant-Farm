@@ -52,6 +52,32 @@ func connectAnts(ants ...*Ant) error {
 	return nil
 }
 
+// startAnts starts the ants defined by configs and blocks until every API
+// has loaded.
+func startAnts(configs ...AntConfig) ([]*Ant, error) {
+	var ants []*Ant
+	for i, config := range configs {
+		fmt.Printf("starting ant %v with jobs %v\n", i, config.Jobs)
+		ant, err := NewAnt(config)
+		if err != nil {
+			return nil, err
+		}
+		ants = append(ants, ant)
+	}
+
+	// Wait for every ant API to become reachable.
+	for _, ant := range ants {
+		c := api.NewClient(ant.apiaddr, "")
+		for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
+			if err := c.Get("/consensus", nil); err == nil {
+				break
+			}
+		}
+	}
+
+	return ants, nil
+}
+
 // NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
 // `jobs` are passed as flags to sia-ant.  If APIAddr, RPCAddr, or HostAddr are
 // defined in `config`, they will be passed to the Ant.  Otherwise, the Ant
@@ -103,20 +129,6 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
-	}
-
-	// Wait for the Sia API to become available
-	c := api.NewClient(apiaddr, "")
-	success := false
-	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
-		if err := c.Get("/consensus", nil); err == nil {
-			success = true
-			break
-		}
-	}
-	if !success {
-		cmd.Process.Signal(os.Interrupt)
-		return nil, errors.New("timeout: couldnt reach api after 5 minutes")
 	}
 
 	return &Ant{apiaddr, rpcaddr, cmd}, nil

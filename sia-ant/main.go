@@ -30,7 +30,6 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	go func() {
 		<-sigchan
 		cmd.Process.Kill()
-		os.Exit(0)
 	}()
 
 	// Wait for the Sia API to become available.

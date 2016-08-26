@@ -17,18 +17,19 @@ func TestStartAnts(t *testing.T) {
 	}
 
 	configs := []AntConfig{
-		{},
-		{},
-		{},
+		AntConfig{},
+		AntConfig{},
+		AntConfig{},
 	}
 
-	ants, err := startAnts(configs)
+	ants, err := startAnts(configs...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
 		for _, ant := range ants {
 			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
 		}
 	}()
 

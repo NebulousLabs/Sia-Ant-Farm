@@ -47,25 +47,21 @@ func main() {
 	os.RemoveAll("./antfarm-data")
 
 	// Start each sia-ant process with its assigned jobs from the config file.
-	var wg sync.WaitGroup
-	var ants []*Ant
-	for antindex, config := range antfarmConfig.AntConfigs {
-		fmt.Printf("Starting ant %v with jobs %v\n", antindex, config.Jobs)
-		antcmd, err := NewAnt(config)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error starting ant %v: %v\n", antindex, err)
-			os.Exit(1)
-		}
-		defer func() {
-			antcmd.Process.Signal(os.Interrupt)
-		}()
-		wg.Add(1)
-		ants = append(ants, antcmd)
-		go func() {
-			antcmd.Wait()
-			wg.Done()
-		}()
+	ants, err := startAnts(antfarmConfig.AntConfigs...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error starting ants: %v\n", err)
+		os.Exit(1)
 	}
+
+	// Wait for every ant process to exit before exiting antfarm
+	var wg sync.WaitGroup
+	wg.Add(len(ants))
+	go func() {
+		for _, ant := range ants {
+			ant.Wait()
+			wg.Done()
+		}
+	}()
 
 	if antfarmConfig.AutoConnect {
 		if err = connectAnts(ants...); err != nil {
