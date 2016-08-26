@@ -122,23 +122,26 @@ func TestConnectAnts(t *testing.T) {
 		t.Fatal("connectAnts didnt throw an error with only one ant")
 	}
 
-	n_ants := 5
-	config := AntConfig{}
-	var ants []*Ant
-
-	for i := 0; i < n_ants; i++ {
-		ant, err := NewAnt(config)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() {
-			ant.Process.Signal(os.Interrupt)
-			ant.Wait()
-		}()
-		ants = append(ants, ant)
+	configs := []AntConfig{
+		{},
+		{},
+		{},
+		{},
+		{},
 	}
 
-	err := connectAnts(ants...)
+	ants, err := startAnts(configs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, ant := range ants {
+			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
+		}
+	}()
+
+	err = connectAnts(ants...)
 	if err != nil {
 		t.Fatal(err)
 	}
