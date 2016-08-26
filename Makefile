@@ -17,7 +17,7 @@ vet:
 install:
 	go install -race $(pkgs)
 
-test: fmt vet
+test: fmt vet install
 	go test -race -v $(pkgs)
 
 lint:
@@ -37,4 +37,4 @@ cover: clean
 		&& rm cover/$$package.out ; \
 	done
 
-.PHONY: all dependencies dev-dependencies pkgs fmt vet install test lint clean cover
+.PHONY: all dependencies pkgs fmt vet install test lint clean cover
