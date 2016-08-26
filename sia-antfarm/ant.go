@@ -101,7 +101,6 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr, "-sia-directory", siadir)
 	cmd := exec.Command("sia-ant", args...)
 	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
