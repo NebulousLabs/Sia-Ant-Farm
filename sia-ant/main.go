@@ -19,7 +19,6 @@ import (
 // is passed as siad's `--sia-directory`.
 func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
 	cmd := exec.Command(siadPath, "--no-bootstrap", "--sia-directory", datadir, "--api-addr", apiAddr, "--rpc-addr", rpcAddr, "--host-addr", hostAddr)
-	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
