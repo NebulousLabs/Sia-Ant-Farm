@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 )
 
 // AntConfig contains fields to pass to a sia-ant job runner.
@@ -67,9 +66,6 @@ func main() {
 			wg.Done()
 		}()
 	}
-
-	// Naively wait for all the ants apis to become available
-	time.Sleep(time.Second)
 
 	if antfarmConfig.AutoConnect {
 		if err = connectAnts(ants...); err != nil {

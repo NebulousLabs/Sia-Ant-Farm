@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/NebulousLabs/Sia/api"
 )
@@ -25,6 +24,12 @@ func TestSpawnAnt(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cmd.Process.Signal(os.Interrupt)
+
+	// Verify the API is reachable after NewAnt returns
+	c := api.NewClient(cmd.apiaddr, "")
+	if err = c.Get("/consensus", nil); err != nil {
+		t.Fatal(err)
+	}
 
 	if cmd.Args[0] != "sia-ant" {
 		t.Fatal("first arg of NewAnt's command should be sia-ant")
@@ -84,8 +89,6 @@ func TestConnectAnts(t *testing.T) {
 		ants = append(ants, ant)
 	}
 
-	// Allow some time for their APIs to become available
-	time.Sleep(time.Second * 5)
 	err := connectAnts(ants...)
 	if err != nil {
 		t.Fatal(err)
