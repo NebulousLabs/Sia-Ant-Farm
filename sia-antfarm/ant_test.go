@@ -9,6 +9,38 @@ import (
 	"github.com/NebulousLabs/Sia/api"
 )
 
+// TestStartAnts verifies that startAnts successfully starts ants given some
+// configs.
+func TestStartAnts(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
+	configs := []AntConfig{
+		{},
+		{},
+		{},
+	}
+
+	ants, err := startAnts(configs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, ant := range ants {
+			ant.Process.Signal(os.Interrupt)
+		}
+	}()
+
+	// verify each ant has a reachable api
+	for _, ant := range ants {
+		c := api.NewClient(ant.apiaddr, "")
+		if err := c.Get("/consensus", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // TestSpawnAnt verifies that new ant processes are created correctly.
 func TestSpawnAnt(t *testing.T) {
 	if testing.Short() {
