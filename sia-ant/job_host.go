@@ -41,7 +41,6 @@ func (j *JobRunner) jobHost() {
 			break
 		}
 	}
-
 	if !success {
 		log.Printf("[%v jobHost ERROR]: timeout: could not mine enough currency after 5 minutes\n", j.siaDirectory)
 		return
