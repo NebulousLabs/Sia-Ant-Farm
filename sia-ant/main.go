@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"time"
+
+	"github.com/NebulousLabs/Sia/api"
 )
 
 // NewSiad spawns a new siad process using os/exec and waits for the api to
@@ -20,6 +22,15 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
+	}
+
+	// Wait for the Sia api to become available.
+	c := api.NewClient(apiAddr, "")
+	for {
+		if err := c.Get("/consensus", nil); err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	return cmd, nil
@@ -41,9 +52,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Naively wait for the daemon to start.
-	time.Sleep(time.Second)
 
 	// Construct the job runner
 	j, err := NewJobRunner(*apiAddr, "", *siaDirectory)
