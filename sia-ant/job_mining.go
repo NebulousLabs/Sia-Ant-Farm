@@ -13,6 +13,16 @@ import (
 // seconds passes before the wallet has received some amount of currency, this
 // job will print an error.
 func (j *JobRunner) blockMining() {
+	done := make(chan struct{})
+	defer close(done)
+
+	j.tg.OnStop(func() {
+		<-done
+	})
+
+	j.tg.Add()
+	defer j.tg.Done()
+
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
 		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
@@ -27,7 +37,13 @@ func (j *JobRunner) blockMining() {
 
 	// Mine a block and wait for the confirmed funds to appear in the wallet.
 	success := false
-	for start := time.Now(); time.Since(start) < 100*time.Second; time.Sleep(time.Second) {
+	for start := time.Now(); time.Since(start) < 100*time.Second; {
+		select {
+		case <-j.tg.StopChan():
+			return
+		case <-time.After(time.Second):
+		}
+
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {

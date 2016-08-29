@@ -23,16 +23,32 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 		return nil, err
 	}
 
-	// Kill siad when sia-ant receives an interrupt signal
+	// After starting siad, we must immediately listen for Interrupt signals sent
+	// to the main process to avoid leaving orphaned siad processes when this
+	// program is interrupted.
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
 	go func() {
 		<-sigchan
-		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
+		if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
+			// Call to /daemon/stop failed, maybe the API hasnt finished loading yet.
+			// Fall back to issuing an interrupt signal.
+			cmd.Process.Signal(os.Interrupt)
+		}
 	}()
 
-	// Wait for the Sia API to become available.
+	if err := waitForAPI(apiAddr); err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
+}
+
+// waitForAPI blocks until the Sia API at apiAddr becomes available.
+func waitForAPI(apiAddr string) error {
 	c := api.NewClient(apiAddr, "")
+
+	// Wait for the Sia API to become available.
 	success := false
 	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
 		if err := c.Get("/consensus", nil); err == nil {
@@ -41,10 +57,10 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 		}
 	}
 	if !success {
-		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
-		return nil, errors.New("timeout: couldnt reach api after 5 minutes")
+		c.Get("/daemon/stop", nil)
+		return errors.New("timeout: couldnt reach api after 5 minutes")
 	}
-	return cmd, nil
+	return nil
 }
 
 // runSiaAnt is the main entry point of the sia-ant program, and returns an
@@ -56,6 +72,7 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
 		return 1
 	}
+
 	defer func() {
 		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
 	}()
@@ -66,6 +83,20 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 		fmt.Fprintf(os.Stderr, "error creating job runner: %v\n", err)
 		return 1
 	}
+
+	// Catch os.Interrupt and trigger a clean close of sia-ant.  First, stop all
+	// jobs using JobRunner's ThreadGroup, then stop siad using the API.
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, os.Interrupt)
+	go func() {
+		<-sigchan
+		j.Stop()
+		if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
+			// Call to /daemon/stop failed, maybe the API hasnt finished loading yet.
+			// Fall back to issuing an interrupt signal.
+			siad.Process.Signal(os.Interrupt)
+		}
+	}()
 
 	// Start up selected jobs
 	if runGateway {
