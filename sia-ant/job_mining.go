@@ -20,9 +20,6 @@ func (j *JobRunner) blockMining() {
 		<-done
 	})
 
-	j.tg.Add()
-	defer j.tg.Done()
-
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
 		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
@@ -44,17 +41,21 @@ func (j *JobRunner) blockMining() {
 		case <-time.After(time.Second):
 		}
 
+		j.tg.Add()
+
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
 			log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
-			return
 		}
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(types.ZeroCurrency) > 0 {
 			// We have mined a block and now have money, continue
 			success = true
+			j.tg.Done()
 			break
 		}
+
+		j.tg.Done()
 	}
 	if !success {
 		log.Printf("[%v blockMining ERROR]: it took too long to mine a block to use in blockMining\n", j.siaDirectory)
