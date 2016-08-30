@@ -17,34 +17,50 @@ import (
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
 // using that currency, and uploads some files.  It will periodically try to
 // download those files, printing any errors that occur.
-func (j *JobRunner) storageRenter() error {
+func (j *JobRunner) storageRenter() {
+	done := make(chan struct{})
+	defer close(done)
+
+	j.tg.OnStop(func() {
+		<-done
+	})
+
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
 		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-		return err
+		return
 	}
 
 	err = j.client.Get("/miner/start", nil)
 	if err != nil {
 		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-		return err
+		return
 	}
 
 	// Mine at least 100,000 SC
 	desiredbalance := types.NewCurrency64(100000).Mul(types.SiacoinPrecision)
-	balance := types.NewCurrency64(0)
-	for {
+	success := false
+	for start := time.Now(); time.Since(start) < 5*time.Minute; {
+		select {
+		case <-j.tg.StopChan():
+			return
+		case <-time.After(time.Second):
+		}
+
 		var walletInfo api.WalletGET
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
 			log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-			return err
+			return
 		}
-		if balance.Cmp(desiredbalance) > 0 {
+		if walletInfo.ConfirmedSiacoinBalance.Cmp(desiredbalance) > 0 {
+			success = true
 			break
 		}
-		balance = walletInfo.ConfirmedSiacoinBalance
-		time.Sleep(time.Second)
+	}
+	if !success {
+		log.Printf("[%v jobStorageRenter ERROR]: timeout: could not mine enough currency after 5 minutes\n", j.siaDirectory)
+		return
 	}
 
 	// Set an initial 50ksc allowance
@@ -119,6 +135,4 @@ func (j *JobRunner) storageRenter() error {
 			j.tg.Done()
 		}
 	}()
-
-	return nil
 }
