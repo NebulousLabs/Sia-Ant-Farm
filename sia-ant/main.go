@@ -65,7 +65,7 @@ func waitForAPI(apiAddr string) error {
 
 // runSiaAnt is the main entry point of the sia-ant program, and returns an
 // exit code.
-func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGateway bool, runMining bool) int {
+func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGateway bool, runMining bool, runRenter bool) int {
 	// Construct a new siad instance
 	siad, err := NewSiad(siadPath, siaDirectory, apiAddr, rpcAddr, hostAddr)
 	if err != nil {
@@ -105,6 +105,9 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 	if runMining {
 		go j.blockMining()
 	}
+	if runRenter {
+		go j.storageRenter()
+	}
 
 	siad.Wait()
 	return 0
@@ -118,7 +121,8 @@ func main() {
 	siaDirectory := flag.String("sia-directory", "./", "sia data directory")
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
 	runMining := flag.Bool("mining", false, "enable mining test jobs")
+	runRenter := flag.Bool("renter", false, "enable renter test jobs")
 	flag.Parse()
 
-	os.Exit(runSiaAnt(*siadPath, *apiAddr, *rpcAddr, *hostAddr, *siaDirectory, *runGateway, *runMining))
+	os.Exit(runSiaAnt(*siadPath, *apiAddr, *rpcAddr, *hostAddr, *siaDirectory, *runGateway, *runMining, *runRenter))
 }

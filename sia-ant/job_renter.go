@@ -14,10 +14,10 @@ import (
 	"github.com/NebulousLabs/Sia/types"
 )
 
-// jobStorageRenter unlocks the wallet, mines some currency, sets an allowance
+// storageRenter unlocks the wallet, mines some currency, sets an allowance
 // using that currency, and uploads some files.  It will periodically try to
 // download those files, printing any errors that occur.
-func (j *JobRunner) jobStorageRenter() error {
+func (j *JobRunner) storageRenter() error {
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
 		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
