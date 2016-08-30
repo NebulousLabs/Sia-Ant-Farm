@@ -24,8 +24,6 @@ func (j *JobRunner) gatewayConnectability() {
 		case <-time.After(time.Second * 5):
 		}
 
-		j.tg.Add()
-
 		var gatewayInfo api.GatewayGET
 		err := j.client.Get("/gateway", &gatewayInfo)
 		if err != nil {
@@ -34,7 +32,5 @@ func (j *JobRunner) gatewayConnectability() {
 		if len(gatewayInfo.Peers) == 0 {
 			log.Printf("[%v gatewayConnectability WARN]: ant has zero peers", j.siaDirectory)
 		}
-
-		j.tg.Done()
 	}
 }
