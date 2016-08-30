@@ -62,7 +62,7 @@ func (j *JobRunner) jobHost() {
 	defer os.RemoveAll(hostdir)
 
 	// Add the storage folder.
-	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000"), nil)
+	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000", hostdir), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
