@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/NebulousLabs/Sia/api"
 )
@@ -49,6 +50,32 @@ func connectAnts(ants ...*Ant) error {
 		}
 	}
 	return nil
+}
+
+// startAnts starts the ants defined by configs and blocks until every API
+// has loaded.
+func startAnts(configs ...AntConfig) ([]*Ant, error) {
+	var ants []*Ant
+	for i, config := range configs {
+		fmt.Printf("starting ant %v with jobs %v\n", i, config.Jobs)
+		ant, err := NewAnt(config)
+		if err != nil {
+			return nil, err
+		}
+		ants = append(ants, ant)
+	}
+
+	// Wait for every ant API to become reachable.
+	for _, ant := range ants {
+		c := api.NewClient(ant.apiaddr, "")
+		for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
+			if err := c.Get("/consensus", nil); err == nil {
+				break
+			}
+		}
+	}
+
+	return ants, nil
 }
 
 // NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by

@@ -14,6 +14,13 @@ import (
 // jobHost unlocks the wallet, mines some currency, and starts a host offering
 // storage to the ant farm.
 func (j *JobRunner) jobHost() {
+	done := make(chan struct{})
+	defer close(done)
+
+	j.tg.OnStop(func() {
+		<-done
+	})
+
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR: %v\n", j.siaDirectory, err)
@@ -55,7 +62,7 @@ func (j *JobRunner) jobHost() {
 	defer os.RemoveAll(hostdir)
 
 	// Add the storage folder.
-	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000"), nil)
+	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000", hostdir), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
@@ -79,6 +86,12 @@ func (j *JobRunner) jobHost() {
 	// `StorageRevenue` decreases, log an ERROR.
 	maxRevenue := types.NewCurrency64(0)
 	for {
+		select {
+		case <-j.tg.StopChan():
+			return
+		case <-time.After(time.Second):
+		}
+
 		var hostInfo api.HostGET
 		err = j.client.Get("/host", &hostInfo)
 		if err != nil {
@@ -94,7 +107,5 @@ func (j *JobRunner) jobHost() {
 			// Storage revenue has decreased!
 			log.Printf("[%v jobHost ERROR]: StorageRevenue decreased!  was %v is now %v\n", j.siaDirectory, maxRevenue, hostInfo.FinancialMetrics.StorageRevenue)
 		}
-
-		time.Sleep(time.Second * 5)
 	}
 }

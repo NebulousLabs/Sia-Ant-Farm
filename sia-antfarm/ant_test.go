@@ -2,29 +2,76 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/NebulousLabs/Sia/api"
 )
 
+// TestStartAnts verifies that startAnts successfully starts ants given some
+// configs.
+func TestStartAnts(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
+	configs := []AntConfig{
+		{},
+		{},
+		{},
+	}
+
+	ants, err := startAnts(configs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, ant := range ants {
+			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
+		}
+	}()
+
+	// verify each ant has a reachable api
+	for _, ant := range ants {
+		c := api.NewClient(ant.apiaddr, "")
+		if err := c.Get("/consensus", nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // TestSpawnAnt verifies that new ant processes are created correctly.
 func TestSpawnAnt(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
+	datadir, err := ioutil.TempDir("", "sia-testing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(datadir)
+
 	testConfig := AntConfig{
 		APIAddr:      "localhost:10000",
 		RPCAddr:      "localhost:10001",
 		HostAddr:     "localhost:10002",
-		SiaDirectory: "/tmp/testdir",
+		SiaDirectory: datadir,
 		Jobs: []string{
 			"gateway",
 		},
 	}
+
 	cmd, err := NewAnt(testConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cmd.Process.Signal(os.Interrupt)
+	defer func() {
+		cmd.Process.Signal(os.Interrupt)
+		cmd.Wait()
+	}()
 
 	if cmd.Args[0] != "sia-ant" {
 		t.Fatal("first arg of NewAnt's command should be sia-ant")
@@ -66,27 +113,35 @@ func TestSpawnAnt(t *testing.T) {
 }
 
 func TestConnectAnts(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	// connectAnts should throw an error if only one ant is provided
 	if err := connectAnts(&Ant{}); err == nil {
 		t.Fatal("connectAnts didnt throw an error with only one ant")
 	}
 
-	n_ants := 5
-	config := AntConfig{}
-	var ants []*Ant
-
-	for i := 0; i < n_ants; i++ {
-		ant, err := NewAnt(config)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ant.Process.Signal(os.Interrupt)
-		ants = append(ants, ant)
+	configs := []AntConfig{
+		{},
+		{},
+		{},
+		{},
+		{},
 	}
 
-	// Allow some time for their APIs to become available
-	time.Sleep(time.Second * 5)
-	err := connectAnts(ants...)
+	ants, err := startAnts(configs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, ant := range ants {
+			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
+		}
+	}()
+
+	err = connectAnts(ants...)
 	if err != nil {
 		t.Fatal(err)
 	}
