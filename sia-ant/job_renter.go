@@ -104,8 +104,8 @@ func (j *JobRunner) storageRenter() {
 			case <-time.After(time.Second * 120):
 			}
 
-			// Every 10 files, delete one file at random.
-			if i%10 == 0 {
+			// After 10 files, delete one file at random every iteration.
+			if i >= 10 {
 				randindex := mrand.Intn(len(files))
 				if err := j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
