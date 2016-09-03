@@ -18,12 +18,8 @@ import (
 // using that currency, and uploads some files.  It will periodically try to
 // download those files, printing any errors that occur.
 func (j *JobRunner) storageRenter() {
-	done := make(chan struct{})
-	defer close(done)
-
-	j.tg.OnStop(func() {
-		<-done
-	})
+	j.tg.Add()
+	defer j.tg.Done()
 
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {
@@ -131,6 +127,47 @@ func (j *JobRunner) storageRenter() {
 			}
 
 			files = append(files, f.Name())
+
+			j.tg.Done()
+		}
+	}()
+
+	// Every 200 seconds, verify that not more than the allowance has been spent.
+	go func() {
+		var renterInfo api.RenterGET
+		if err := j.client.Get("/renter", &renterInfo); err != nil {
+			log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+		}
+
+		var walletInfo api.WalletGET
+		if err := j.client.Get("/wallet", &walletInfo); err != nil {
+			log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+		}
+
+		initialBalance := walletInfo.ConfirmedSiacoinBalance
+
+		for {
+			j.tg.Add()
+
+			if err = j.client.Get("/wallet", &walletInfo); err != nil {
+				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+			}
+
+			spent := initialBalance.Sub(walletInfo.ConfirmedSiacoinBalance)
+			if spent.Cmp(renterInfo.Settings.Allowance.Funds) > 0 {
+				log.Printf("[%v jobStorageRenter ERROR: spent more than allowance: spent %v, allowance %v\n", j.siaDirectory, spent, renterInfo.Settings.Allowance.Funds)
+			}
+
+			select {
+			case <-j.tg.StopChan():
+				j.tg.Done()
+				return
+			case <-time.After(time.Second * 200):
+			}
+
+			var walletInfo api.WalletGET
+			if err := j.client.Get("/wallet", &walletInfo); err != nil {
+			}
 
 			j.tg.Done()
 		}
