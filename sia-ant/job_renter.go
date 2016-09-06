@@ -6,11 +6,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	mrand "math/rand"
 	"os"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/crypto"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -68,15 +68,14 @@ func (j *JobRunner) storageRenter() {
 	// Every 1000 seconds, set a new allowance.
 	go func() {
 		for {
+			select {
+			case <-j.tg.StopChan():
+				return
+			case <-time.After(time.Second * 1000):
+			}
 			func() {
 				j.tg.Add()
 				defer j.tg.Done()
-
-				select {
-				case <-j.tg.StopChan():
-					return
-				case <-time.After(time.Second * 1000):
-				}
 
 				// set an allowance of 50k SC
 				allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
@@ -92,19 +91,22 @@ func (j *JobRunner) storageRenter() {
 	go func() {
 		var files []string
 		for i := 0; ; i++ {
+			select {
+			case <-j.tg.StopChan():
+				return
+			case <-time.After(time.Second * 120):
+			}
 			func() {
 				j.tg.Add()
 				defer j.tg.Done()
 
-				select {
-				case <-j.tg.StopChan():
-					return
-				case <-time.After(time.Second * 120):
-				}
-
 				if i >= 10 {
-					randindex := mrand.Intn(len(files))
-					if err := j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
+					randindex, err := crypto.RandIntn(len(files))
+					if err != nil {
+						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+						return
+					}
+					if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
 						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 					}
 					files = append(files[:randindex], files[randindex+1:]...)
@@ -117,7 +119,7 @@ func (j *JobRunner) storageRenter() {
 				}
 				defer os.Remove(f.Name())
 
-				_, err = io.CopyN(f, rand.Reader, 500000000)
+				_, err = io.CopyN(f, rand.Reader, 500e6)
 				if err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 				}
@@ -147,15 +149,14 @@ func (j *JobRunner) storageRenter() {
 		initialBalance := walletInfo.ConfirmedSiacoinBalance
 
 		for {
+			select {
+			case <-j.tg.StopChan():
+				return
+			case <-time.After(time.Second * 200):
+			}
 			func() {
 				j.tg.Add()
 				defer j.tg.Done()
-
-				select {
-				case <-j.tg.StopChan():
-					return
-				case <-time.After(time.Second * 200):
-				}
 
 				if err = j.client.Get("/wallet", &walletInfo); err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
