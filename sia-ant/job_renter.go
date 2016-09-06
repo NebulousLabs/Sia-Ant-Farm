@@ -68,67 +68,67 @@ func (j *JobRunner) storageRenter() {
 	// Every 1000 seconds, set a new allowance.
 	go func() {
 		for {
-			j.tg.Add()
+			func() {
+				j.tg.Add()
+				defer j.tg.Done()
 
-			select {
-			case <-j.tg.StopChan():
-				j.tg.Done()
-				return
-			case <-time.After(time.Second * 1000):
-			}
+				select {
+				case <-j.tg.StopChan():
+					return
+				case <-time.After(time.Second * 1000):
+				}
 
-			// set an allowance of 50kSC + a random offset from 0-10ksc
-			allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-			if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
-				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-			}
-
-			j.tg.Done()
+				// set an allowance of 50k SC
+				allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
+				if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
+					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
+			}()
 		}
 	}()
 
-	// Every 120 seconds, upload a 500MB file.  Delete one file at random once every 10 files.
+	// Every 120 seconds, upload a 500MB file.  After ten files, delete one file
+	// at random each iteration.
 	go func() {
 		var files []string
 		for i := 0; ; i++ {
-			j.tg.Add()
+			func() {
+				j.tg.Add()
+				defer j.tg.Done()
 
-			select {
-			case <-j.tg.StopChan():
-				j.tg.Done()
-				return
-			case <-time.After(time.Second * 120):
-			}
+				select {
+				case <-j.tg.StopChan():
+					return
+				case <-time.After(time.Second * 120):
+				}
 
-			// After 10 files, delete one file at random every iteration.
-			if i >= 10 {
-				randindex := mrand.Intn(len(files))
-				if err := j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
+				if i >= 10 {
+					randindex := mrand.Intn(len(files))
+					if err := j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
+						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+					}
+					files = append(files[:randindex], files[randindex+1:]...)
+				}
+
+				// Generate some random data to upload
+				f, err := ioutil.TempFile("", "antfarm-renter")
+				if err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 				}
-				files = append(files[:randindex], files[randindex+1:]...)
-			}
+				defer os.Remove(f.Name())
 
-			// Generate some random data to upload
-			f, err := ioutil.TempFile("", "antfarm-renter")
-			if err != nil {
-				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-			}
-			defer os.Remove(f.Name())
+				_, err = io.CopyN(f, rand.Reader, 500000000)
+				if err != nil {
+					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
 
-			_, err = io.CopyN(f, rand.Reader, 500000000)
-			if err != nil {
-				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-			}
+				// Upload the random data
+				if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
+					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
 
-			// Upload the random data
-			if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
-				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-			}
-
-			files = append(files, f.Name())
-
-			j.tg.Done()
+				files = append(files, f.Name())
+			}()
 		}
 	}()
 
@@ -147,29 +147,25 @@ func (j *JobRunner) storageRenter() {
 		initialBalance := walletInfo.ConfirmedSiacoinBalance
 
 		for {
-			j.tg.Add()
+			func() {
+				j.tg.Add()
+				defer j.tg.Done()
 
-			if err = j.client.Get("/wallet", &walletInfo); err != nil {
-				log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-			}
+				select {
+				case <-j.tg.StopChan():
+					return
+				case <-time.After(time.Second * 200):
+				}
 
-			spent := initialBalance.Sub(walletInfo.ConfirmedSiacoinBalance)
-			if spent.Cmp(renterInfo.Settings.Allowance.Funds) > 0 {
-				log.Printf("[%v jobStorageRenter ERROR: spent more than allowance: spent %v, allowance %v\n", j.siaDirectory, spent, renterInfo.Settings.Allowance.Funds)
-			}
+				if err = j.client.Get("/wallet", &walletInfo); err != nil {
+					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
 
-			select {
-			case <-j.tg.StopChan():
-				j.tg.Done()
-				return
-			case <-time.After(time.Second * 200):
-			}
-
-			var walletInfo api.WalletGET
-			if err := j.client.Get("/wallet", &walletInfo); err != nil {
-			}
-
-			j.tg.Done()
+				spent := initialBalance.Sub(walletInfo.ConfirmedSiacoinBalance)
+				if spent.Cmp(renterInfo.Settings.Allowance.Funds) > 0 {
+					log.Printf("[%v jobStorageRenter ERROR: spent more than allowance: spent %v, allowance %v\n", j.siaDirectory, spent, renterInfo.Settings.Allowance.Funds)
+				}
+			}()
 		}
 	}()
 }
