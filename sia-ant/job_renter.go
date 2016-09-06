@@ -90,6 +90,14 @@ func (j *JobRunner) storageRenter() {
 	// at random each iteration.
 	go func() {
 		var files []string
+
+		// Clean up by deleting any created files when this goroutine returns.
+		defer func() {
+			for _, file := range files {
+				os.Remove(file)
+			}
+		}()
+
 		for i := 0; ; i++ {
 			select {
 			case <-j.tg.StopChan():
@@ -117,7 +125,6 @@ func (j *JobRunner) storageRenter() {
 				if err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 				}
-				defer os.Remove(f.Name())
 
 				_, err = io.CopyN(f, rand.Reader, 500e6)
 				if err != nil {
