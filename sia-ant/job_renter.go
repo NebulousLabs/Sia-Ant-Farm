@@ -125,6 +125,7 @@ func (j *JobRunner) storageRenter() {
 				if err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 				}
+				files = append(files, f.Name())
 
 				_, err = io.CopyN(f, rand.Reader, 500e6)
 				if err != nil {
@@ -135,8 +136,6 @@ func (j *JobRunner) storageRenter() {
 				if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 				}
-
-				files = append(files, f.Name())
 			}()
 		}
 	}()
