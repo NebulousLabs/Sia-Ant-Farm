@@ -110,6 +110,8 @@ func (j *JobRunner) storageRenter() {
 				j.tg.Add()
 				defer j.tg.Done()
 
+				// TODO: verify that spending does not exceed the set allowance.
+
 				// set an allowance of 50k SC
 				allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
 				if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=%v", allowance, allowancePeriod), nil); err != nil {
@@ -169,42 +171,6 @@ func (j *JobRunner) storageRenter() {
 				// Upload the random data
 				if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-				}
-			}()
-		}
-	}()
-
-	// Every 200 seconds, verify that not more than the allowance has been spent.
-	go func() {
-		var renterInfo api.RenterGET
-		if err := j.client.Get("/renter", &renterInfo); err != nil {
-			log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-		}
-
-		var walletInfo api.WalletGET
-		if err := j.client.Get("/wallet", &walletInfo); err != nil {
-			log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-		}
-
-		initialBalance := walletInfo.ConfirmedSiacoinBalance
-
-		for {
-			select {
-			case <-j.tg.StopChan():
-				return
-			case <-time.After(time.Second * 200):
-			}
-			func() {
-				j.tg.Add()
-				defer j.tg.Done()
-
-				if err = j.client.Get("/wallet", &walletInfo); err != nil {
-					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-				}
-
-				spent := initialBalance.Sub(walletInfo.ConfirmedSiacoinBalance)
-				if spent.Cmp(renterInfo.Settings.Allowance.Funds) > 0 {
-					log.Printf("[%v jobStorageRenter ERROR: spent more than allowance: spent %v, allowance %v\n", j.siaDirectory, spent, renterInfo.Settings.Allowance.Funds)
 				}
 			}()
 		}
