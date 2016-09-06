@@ -117,6 +117,7 @@ func (j *JobRunner) storageRenter() {
 					if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
 						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 					}
+					os.Remove(file)
 					files = append(files[:randindex], files[randindex+1:]...)
 				}
 
