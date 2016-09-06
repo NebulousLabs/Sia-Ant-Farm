@@ -40,7 +40,7 @@ type SiaConstants struct {
 
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
 // using that currency, and uploads some files.  It will periodically try to
-// download those files, printing any errors that occur.
+// download or delete those files, printing any errors that occur.
 func (j *JobRunner) storageRenter() {
 	j.tg.Add()
 	defer j.tg.Done()
@@ -88,8 +88,12 @@ func (j *JobRunner) storageRenter() {
 	var daemonConstants SiaConstants
 	if err := j.client.Get("/daemon/constants", &daemonConstants); err != nil {
 		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+		return
 	}
 
+	// allowancePeriod is the number of blocks to set the allowance for,
+	// allowanceFrequency is the frequency at which to set subsequent new
+	// allowances.
 	allowancePeriod := 100
 	allowanceFrequency := time.Duration(int(daemonConstants.BlockFrequency)*allowancePeriod) * time.Second
 
@@ -99,6 +103,7 @@ func (j *JobRunner) storageRenter() {
 		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 	}
 
+	// Set a 50ksc allowance every allowanceFrequency seconds.
 	go func() {
 		for {
 			select {
@@ -171,6 +176,110 @@ func (j *JobRunner) storageRenter() {
 				// Upload the random data
 				if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
 					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
+			}()
+		}
+	}()
+
+	// Every 200 seconds, download a file.  Verify that the download call
+	// succeeds correctly, the file is placed in the download list, and the file
+	// is removed from the download list, indicating successful download
+	// completion.
+	go func() {
+		for {
+			select {
+			case <-j.tg.StopChan():
+				return
+			case <-time.After(time.Second * 200):
+			}
+
+			func() {
+				j.tg.Add()
+				defer j.tg.Done()
+
+				// Download a random file from the renter's file list
+				var renterFiles api.RenterFiles
+				if err := j.client.Get("/renter/files", &renterFiles); err != nil {
+					log.Printf("%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
+
+				// Filter out files which are not available.
+				availableFiles := renterFiles.Files[:0]
+				for _, file := range renterFiles.Files {
+					if file.Available {
+						availableFiles = append(availableFiles, file)
+					}
+				}
+
+				// Download a file at random.
+				randindex, _ := crypto.RandIntn(len(availableFiles))
+				fileToDownload := availableFiles[randindex]
+
+				f, err := ioutil.TempFile("", "antfarm-renter")
+				if err != nil {
+					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+				}
+				defer os.Remove(f.Name())
+
+				if err = j.client.Post(fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath), fmt.Sprintf("destination=%v", f.Name()), nil); err != nil {
+					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+					return
+				}
+
+				// isFileInDownloads grabs the files currently being downloaded by the
+				// renter and returns bool `true` if fileToDownload exists in the
+				// download list.
+				isFileInDownloads := func() bool {
+					var renterDownloads api.RenterDownloadQueue
+					if err = j.client.Get("/renter/downloads", &renterDownloads); err != nil {
+						log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+					}
+
+					hasFile := false
+					for _, download := range renterDownloads.Downloads {
+						if download.SiaPath == fileToDownload.SiaPath {
+							hasFile = true
+						}
+					}
+
+					return hasFile
+				}
+
+				// Wait for the file to appear in the download list
+				success := false
+				for start := time.Now(); time.Since(start) < 1*time.Minute; {
+					select {
+					case <-j.tg.StopChan():
+						break
+					case <-time.After(time.Second):
+					}
+
+					if isFileInDownloads() {
+						success = true
+						break
+					}
+				}
+				if !success {
+					log.Printf("[%v jobStorageRenter ERROR]: file %v did not appear in the renter download list\n", j.siaDirectory, fileToDownload.SiaPath)
+					return
+				}
+
+				// Wait for the file to be finished downloading, with a timeout of 15 minutes.
+				success = false
+				for start := time.Now(); time.Since(start) < 15*time.Minute; {
+					select {
+					case <-j.tg.StopChan():
+						break
+					case <-time.After(time.Second):
+					}
+
+					if !isFileInDownloads() {
+						success = true
+						break
+					}
+				}
+				if !success {
+					log.Printf("[%v jobStorageRenter ERROR]: file %v did not complete downloading\n", j.siaDirectory, fileToDownload.SiaPath)
 				}
 			}()
 		}
