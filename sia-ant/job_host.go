@@ -96,12 +96,11 @@ func (j *JobRunner) jobHost() {
 		err = j.client.Get("/host", &hostInfo)
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
-			return
 		}
 		log.Printf("[%v jobHost INFO]: %v", j.siaDirectory, hostInfo.NetworkMetrics)
 
 		// Print an error if storage revenue has decreased
-		if hostInfo.FinancialMetrics.StorageRevenue.Cmp(maxRevenue) > 0 {
+		if hostInfo.FinancialMetrics.StorageRevenue.Cmp(maxRevenue) >= 0 {
 			maxRevenue = hostInfo.FinancialMetrics.StorageRevenue
 		} else {
 			// Storage revenue has decreased!
