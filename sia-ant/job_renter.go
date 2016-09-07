@@ -121,7 +121,7 @@ func (j *JobRunner) storageRenter() {
 		}
 	}()
 
-	// Every 200 seconds, download a file.  Verify that the download call
+	// Every 200 seconds, attempt to download a file.  Verify that the download call
 	// succeeds correctly, the file is placed in the download list, and the file
 	// is removed from the download list, indicating successful download
 	// completion.
@@ -141,6 +141,11 @@ func (j *JobRunner) storageRenter() {
 				var renterFiles api.RenterFiles
 				if err := j.client.Get("/renter/files", &renterFiles); err != nil {
 					log.Printf("%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+				}
+
+				// Do nothing if there are not any files to be downloaded.
+				if len(renterFiles.Files) == 0 {
+					return
 				}
 
 				// Filter out files which are not available.
