@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"os"
 	"time"
 
@@ -14,29 +13,6 @@ import (
 	"github.com/NebulousLabs/Sia/crypto"
 	"github.com/NebulousLabs/Sia/types"
 )
-
-type SiaConstants struct {
-	GenesisTimestamp      types.Timestamp   `json:"genesistimestamp"`
-	BlockSizeLimit        uint64            `json:"blocksizelimit"`
-	BlockFrequency        types.BlockHeight `json:"blockfrequency"`
-	TargetWindow          types.BlockHeight `json:"targetwindow"`
-	MedianTimestampWindow uint64            `json:"mediantimestampwindow"`
-	FutureThreshold       types.Timestamp   `json:"futurethreshold"`
-	SiafundCount          types.Currency    `json:"siafundcount"`
-	SiafundPortion        *big.Rat          `json:"siafundportion"`
-	MaturityDelay         types.BlockHeight `json:"maturitydelay"`
-
-	InitialCoinbase uint64 `json:"initialcoinbase"`
-	MinimumCoinbase uint64 `json:"minimumcoinbase"`
-
-	RootTarget types.Target `json:"roottarget"`
-	RootDepth  types.Target `json:"rootdepth"`
-
-	MaxAdjustmentUp   *big.Rat `json:"maxadjustmentup"`
-	MaxAdjustmentDown *big.Rat `json:"maxadjustmentdown"`
-
-	SiacoinPrecision types.Currency `json:"siacoinprecision"`
-}
 
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
 // using that currency, and uploads some files.  It will periodically try to
@@ -83,48 +59,12 @@ func (j *JobRunner) storageRenter() {
 		return
 	}
 
-	// Set an allowance period of 100 blocks.  After this period elapses, set a
-	// new allowance.
-	var daemonConstants SiaConstants
-	if err := j.client.Get("/daemon/constants", &daemonConstants); err != nil {
-		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-		return
-	}
-
-	// allowancePeriod is the number of blocks to set the allowance for,
-	// allowanceFrequency is the frequency at which to set subsequent new
-	// allowances.
-	allowancePeriod := 100
-	allowanceFrequency := time.Duration(int(daemonConstants.BlockFrequency)*allowancePeriod) * time.Second
-
-	// Set an initial 50ksc allowance
+	// Set an allowance using a 100 block period and 50ksc.
+	// TODO: verify that spending does not exceed the set allowance.
 	allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-	if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=%v", allowance, allowancePeriod), nil); err != nil {
+	if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
 		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
 	}
-
-	// Set a 50ksc allowance every allowanceFrequency seconds.
-	go func() {
-		for {
-			select {
-			case <-j.tg.StopChan():
-				return
-			case <-time.After(allowanceFrequency):
-			}
-			func() {
-				j.tg.Add()
-				defer j.tg.Done()
-
-				// TODO: verify that spending does not exceed the set allowance.
-
-				// set an allowance of 50k SC
-				allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-				if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=%v", allowance, allowancePeriod), nil); err != nil {
-					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
-				}
-			}()
-		}
-	}()
 
 	// Every 120 seconds, upload a 500MB file.  After ten files, delete one file
 	// at random each iteration.
