@@ -97,7 +97,8 @@ func (j *JobRunner) jobHost() {
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		}
-		log.Printf("[%v jobHost INFO]: %v", j.siaDirectory, hostInfo.NetworkMetrics)
+		log.Printf("[%v jobHost INFO]: (+%v)\n", j.siaDirectory, hostInfo.NetworkMetrics)
+		log.Printf("[%v jobHost INFO]: (+%v)\n", j.siaDirectory, hostInfo.FinancialMetrics)
 
 		// Print an error if storage revenue has decreased
 		if hostInfo.FinancialMetrics.StorageRevenue.Cmp(maxRevenue) >= 0 {

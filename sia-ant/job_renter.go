@@ -29,7 +29,7 @@ func (j *JobRunner) storageRenter() {
 
 	err = j.client.Get("/miner/start", nil)
 	if err != nil {
-		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
 		return
 	}
 
@@ -63,8 +63,9 @@ func (j *JobRunner) storageRenter() {
 	// TODO: verify that spending does not exceed the set allowance.
 	allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
 	if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
-		log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
 	}
+	log.Printf("[%v jobStorageRenter INFO]: successfully set allowance\n", j.siaDirectory)
 
 	// Every 120 seconds, upload a 500MB file.  After ten files, delete one file
 	// at random each iteration.
@@ -91,12 +92,14 @@ func (j *JobRunner) storageRenter() {
 				if i >= 10 {
 					randindex, err := crypto.RandIntn(len(files))
 					if err != nil {
-						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+						log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
 						return
 					}
 					if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
-						log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+						log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+						return
 					}
+					log.Printf("[%v jobStorageRenter INFO]: successfully deleted file\n", j.siaDirectory)
 					os.Remove(files[randindex])
 					files = append(files[:randindex], files[randindex+1:]...)
 				}
@@ -104,19 +107,23 @@ func (j *JobRunner) storageRenter() {
 				// Generate some random data to upload
 				f, err := ioutil.TempFile("", "antfarm-renter")
 				if err != nil {
-					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+					return
 				}
 				files = append(files, f.Name())
 
 				_, err = io.CopyN(f, rand.Reader, 500e6)
 				if err != nil {
-					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+					return
 				}
 
 				// Upload the random data
 				if err = j.client.Post(fmt.Sprintf("/renter/upload/%v", f.Name()), fmt.Sprintf("source=%v", f.Name()), nil); err != nil {
-					log.Printf("[%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+					return
 				}
+				log.Printf("[%v jobStorageRenter INFO]: succesfully uploaded file\n", j.siaDirectory)
 			}()
 		}
 	}()
@@ -140,7 +147,7 @@ func (j *JobRunner) storageRenter() {
 				// Download a random file from the renter's file list
 				var renterFiles api.RenterFiles
 				if err := j.client.Get("/renter/files", &renterFiles); err != nil {
-					log.Printf("%v jobStorageRenter ERROR: %v\n", j.siaDirectory, err)
+					log.Printf("%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
 				}
 
 				// Do nothing if there are not any files to be downloaded.
@@ -225,7 +232,9 @@ func (j *JobRunner) storageRenter() {
 				}
 				if !success {
 					log.Printf("[%v jobStorageRenter ERROR]: file %v did not complete downloading\n", j.siaDirectory, fileToDownload.SiaPath)
+					return
 				}
+				log.Printf("[%v jobStorageRenter INFO]: succesfully downloaded file\n", j.siaDirectory)
 			}()
 		}
 	}()
