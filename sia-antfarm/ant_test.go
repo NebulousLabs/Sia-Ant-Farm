@@ -156,12 +156,12 @@ func TestConnectAnts(t *testing.T) {
 	for _, ant := range ants[1:] {
 		hasAddr := false
 		for _, peer := range gatewayInfo.Peers {
-			if fmt.Sprintf("%s", peer.NetAddress) == ant.rpcaddr {
+			if fmt.Sprintf("%s", peer.NetAddress) == "127.0.0.1"+ant.rpcaddr {
 				hasAddr = true
 			}
 		}
 		if !hasAddr {
-			t.Fatalf("the central ant is missing %v", ant.rpcaddr)
+			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.rpcaddr)
 		}
 	}
 }
