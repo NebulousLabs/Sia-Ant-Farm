@@ -64,6 +64,7 @@ func (j *JobRunner) storageRenter() {
 	allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
 	if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
 		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+		return
 	}
 	log.Printf("[%v jobStorageRenter INFO]: successfully set allowance\n", j.siaDirectory)
 
