@@ -82,9 +82,10 @@ func (j *JobRunner) jobHost() {
 		time.Sleep(time.Second * 5)
 	}
 	if !success {
-		log.Printf("[%v jobHost ERROR]: Could not announce after 5 tries.\n", j.siaDirectory)
+		log.Printf("[%v jobHost ERROR]: could not announce after 5 tries.\n", j.siaDirectory)
 		return
 	}
+	log.Printf("[%v jobHost INFO]: succesfully performed host announcement\n", j.siaDirectory)
 
 	// Accept contracts
 	err = j.client.Post("/host", "acceptingcontracts=true", nil)
