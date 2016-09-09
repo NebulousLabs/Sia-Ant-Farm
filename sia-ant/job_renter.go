@@ -58,12 +58,21 @@ func (j *JobRunner) storageRenter() {
 		log.Printf("[%v jobStorageRenter ERROR]: timeout: could not mine enough currency after 5 minutes\n", j.siaDirectory)
 		return
 	}
-
-	// Set an allowance using a 100 block period and 50ksc.
+	// Set an allowance using a 100 block period and 50ksc.  Retry up to 5 times on error.
 	// TODO: verify that spending does not exceed the set allowance.
-	allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
-	if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
-		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+	success = false
+	for try := 0; try < 5; try++ {
+		allowance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
+		if err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", allowance), nil); err != nil {
+			log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+		} else {
+			success = true
+			break
+		}
+		time.Sleep(time.Second * 5)
+	}
+	if !success {
+		log.Printf("[%v jobStorageRenter ERROR]: could not set allowance after 5 tries\n", j.siaDirectory)
 		return
 	}
 	log.Printf("[%v jobStorageRenter INFO]: successfully set allowance\n", j.siaDirectory)
