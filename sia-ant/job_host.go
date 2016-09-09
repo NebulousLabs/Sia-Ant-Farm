@@ -82,7 +82,7 @@ func (j *JobRunner) jobHost() {
 		time.Sleep(time.Second * 5)
 	}
 	if !success {
-		log.Printf("[%v jobHost ERROR]: Could not announce after 5 tries.\n")
+		log.Printf("[%v jobHost ERROR]: Could not announce after 5 tries.\n", j.siaDirectory)
 		return
 	}
 
