@@ -19,18 +19,19 @@ type Ant struct {
 	*exec.Cmd
 }
 
-// getAddrs returns n free listening addresses on localhost by leveraging the
-// behaviour of net.Listen("localhost:0").
+// getAddrs returns n free listening ports by leveraging the
+// behaviour of net.Listen(":0").  Addresses are returned in the format of
+// ":port"
 func getAddrs(n int) ([]string, error) {
 	var addrs []string
 
 	for i := 0; i < n; i++ {
-		l, err := net.Listen("tcp", "localhost:0")
+		l, err := net.Listen("tcp", ":0")
 		if err != nil {
 			return nil, err
 		}
 		defer l.Close()
-		addrs = append(addrs, l.Addr().String())
+		addrs = append(addrs, fmt.Sprintf(":%v", l.Addr().(*net.TCPAddr).Port))
 	}
 	return addrs, nil
 }
@@ -44,7 +45,7 @@ func connectAnts(ants ...*Ant) error {
 	targetAnt := ants[0]
 	c := api.NewClient(targetAnt.apiaddr, "")
 	for _, ant := range ants[1:] {
-		err := c.Post(fmt.Sprintf("/gateway/connect/%v", ant.rpcaddr), "", nil)
+		err := c.Post(fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.rpcaddr), "", nil)
 		if err != nil {
 			return err
 		}
@@ -106,7 +107,7 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiaddr := addrs[0]
+	apiaddr := "localhost" + addrs[0]
 	rpcaddr := addrs[1]
 	hostaddr := addrs[2]
 
