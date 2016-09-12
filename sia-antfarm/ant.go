@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"os/exec"
@@ -51,6 +52,34 @@ func connectAnts(ants ...*Ant) error {
 		}
 	}
 	return nil
+}
+
+// antsAreSynced returns a boolean `true` if all `ants` are running the same
+// blockchain, or `false` if they aren't.
+func antsAreSynced(ants ...*Ant) (bool, error) {
+	var consensuses []api.ConsensusGET
+	for _, ant := range ants {
+		c := api.NewClient(ant.apiaddr, "")
+		var consensus api.ConsensusGET
+		if err := c.Get("/consensus", &consensus); err != nil {
+			return false, err
+		}
+		consensuses = append(consensuses, consensus)
+	}
+
+	for _, consensus1 := range consensuses {
+		for _, consensus2 := range consensuses {
+			// Ants at the same block height must have the same current block
+			if consensus1.Height == consensus2.Height && consensus1.CurrentBlock.ID() != consensus2.CurrentBlock.ID() {
+				return false, nil
+			}
+			// Allow ants to be no more than 3 blocks apart from eachother.
+			if math.Abs(float64(consensus1.Height-consensus2.Height)) > 2 {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
 }
 
 // startAnts starts the ants defined by configs and blocks until every API
