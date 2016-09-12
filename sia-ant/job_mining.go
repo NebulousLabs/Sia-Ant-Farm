@@ -49,7 +49,6 @@ func (j *JobRunner) blockMining() {
 		if walletInfo.ConfirmedSiacoinBalance.Cmp(types.ZeroCurrency) > 0 {
 			// We have mined a block and now have money, continue
 			success = true
-			j.tg.Done()
 			break
 		}
 	}
