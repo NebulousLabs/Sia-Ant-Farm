@@ -70,7 +70,7 @@ func antsAreSynced(ants ...*Ant) (bool, error) {
 	for _, consensus1 := range consensuses {
 		for _, consensus2 := range consensuses {
 			// Ants at the same block height must have the same current block
-			if consensus1.Height == consensus2.Height && consensus1.CurrentBlock.ID() != consensus2.CurrentBlock.ID() {
+			if consensus1.Height == consensus2.Height && consensus1.CurrentBlock != consensus2.CurrentBlock {
 				return false, nil
 			}
 			// Allow ants to be no more than 3 blocks apart from eachother.

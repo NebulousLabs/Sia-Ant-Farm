@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/NebulousLabs/Sia/api"
 )
@@ -163,5 +164,65 @@ func TestConnectAnts(t *testing.T) {
 		if !hasAddr {
 			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.rpcaddr)
 		}
+	}
+}
+
+func TestAntsAreSynced(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
+	// spin up our testing ants
+	configs := []AntConfig{
+		{},
+		{},
+		{},
+	}
+	ants, err := startAnts(configs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, ant := range ants {
+			ant.Process.Signal(os.Interrupt)
+			ant.Wait()
+		}
+	}()
+
+	// should return true with only one ant
+	synced, err := antsAreSynced(ants[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !synced {
+		t.Fatal("antsAreSynced returned false for only one ant")
+	}
+
+	// should return true with all 3 ants since they start with the same genesis
+	// block and are not mining
+	synced, err = antsAreSynced(ants...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !synced {
+		t.Fatal("antsAreSynced returned false for 3 initial ants")
+	}
+
+	// Start an ant that is desynced from the rest of the network
+	otherAnt, err := NewAnt(AntConfig{APIAddr: "", RPCAddr: "", HostAddr: "", SiaDirectory: "", Jobs: []string{"mining"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ants = append(ants, otherAnt)
+
+	// Wait for the other ant to mine a few blocks
+	time.Sleep(time.Second * 10)
+
+	synced, err = antsAreSynced(ants...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if synced {
+		t.Fatal("antsAreSynced returned true for ants with different chains")
 	}
 }
