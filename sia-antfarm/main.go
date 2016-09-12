@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 )
 
 // AntConfig contains fields to pass to a sia-ant job runner.
@@ -68,6 +70,22 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error connecting ant: %v\n", err)
 		}
 	}
+
+	// Spawn a thread that checks that all ants in the antfarm are on the same
+	// blockchain every 10 seconds.
+	go func() {
+		for {
+			time.Sleep(time.Second * 10)
+			synced, err := antsAreSynced(ants...)
+			if err != nil {
+				log.Println("error checking sync status of antfarm: ", err)
+				continue
+			}
+			if !synced {
+				log.Println("WARN: ant desynchronization detected!")
+			}
+		}
+	}()
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
