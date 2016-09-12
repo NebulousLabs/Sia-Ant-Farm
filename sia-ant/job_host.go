@@ -89,7 +89,7 @@ func (j *JobRunner) jobHost() {
 		select {
 		case <-j.tg.StopChan():
 			return
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 15):
 		}
 
 		var hostInfo api.HostGET
@@ -97,7 +97,6 @@ func (j *JobRunner) jobHost() {
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		}
-		log.Printf("[%v jobHost INFO]: %v", j.siaDirectory, hostInfo.NetworkMetrics)
 
 		// Print an error if storage revenue has decreased
 		if hostInfo.FinancialMetrics.StorageRevenue.Cmp(maxRevenue) >= 0 {
