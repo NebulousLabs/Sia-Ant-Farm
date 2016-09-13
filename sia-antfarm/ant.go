@@ -123,7 +123,7 @@ func NewAnt(config AntConfig) (*Ant, error) {
 		hostaddr = config.HostAddr
 	}
 
-	fmt.Printf("APIAddr: %v RPCAddr: %v HostAddr: %v\n", apiaddr, rpcaddr, hostaddr)
+	fmt.Printf("[%v jobs %v] APIAddr: %v RPCAddr: %v HostAddr: %v\n", siadir, config.Jobs, apiaddr, rpcaddr, hostaddr)
 
 	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr, "-sia-directory", siadir)
 	cmd := exec.Command("sia-ant", args...)
