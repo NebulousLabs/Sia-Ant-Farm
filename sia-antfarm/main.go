@@ -72,17 +72,32 @@ func main() {
 	}
 
 	// Spawn a thread that checks that all ants in the antfarm are on the same
-	// blockchain every 10 seconds.
+	// blockchain every 20 seconds.
 	go func() {
+		// Give 30 seconds for everything to start up.
+		time.Sleep(time.Second * 30)
+
+		// Every 20 seconds, list all consensus groups.
 		for {
-			time.Sleep(time.Second * 10)
-			synced, err := antsAreSynced(ants...)
+			time.Sleep(time.Second * 20)
+			groups, err := antConsensusGroups(ants...)
 			if err != nil {
 				log.Println("error checking sync status of antfarm: ", err)
 				continue
 			}
-			if !synced {
-				log.Println("WARN: ant desynchronization detected!")
+			if len(groups) == 1 {
+				log.Println("Ants are synchronized.")
+			} else {
+				log.Println("Ants split into multiple groups, displaying")
+				for i, group := range groups {
+					if i != 0 {
+						log.Println()
+					}
+					log.Println("Group ", i+1)
+					for _, ant := range group {
+						log.Println(ant.apiaddr)
+					}
+				}
 			}
 		}
 	}()
