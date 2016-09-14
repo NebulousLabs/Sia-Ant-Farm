@@ -58,6 +58,13 @@ func (j *JobRunner) storageRenter() {
 		log.Printf("[%v jobStorageRenter ERROR]: timeout: could not mine enough currency after 5 minutes\n", j.siaDirectory)
 		return
 	}
+	// Stop the miner so the renter's height does not increase on its own.
+	err = j.client.Get("/miner/stop", nil)
+	if err != nil {
+		log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+		return
+	}
+
 	// Set an allowance using a 100 block period and 50ksc.  Retry up to 5 times on error.
 	// TODO: verify that spending does not exceed the set allowance.
 	success = false

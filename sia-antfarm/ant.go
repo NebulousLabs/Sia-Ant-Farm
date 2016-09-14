@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net"
 	"os"
 	"os/exec"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/types"
 )
 
 // Ant defines the fields used by a Sia Ant.
@@ -18,6 +18,11 @@ type Ant struct {
 	apiaddr string
 	rpcaddr string
 	*exec.Cmd
+
+	// A variable to track which blocks + heights the sync detector has seen
+	// for this ant. The map will just keep growing, but it shouldn't take up a
+	// prohibitive amount of space.
+	seenBlocks map[types.BlockHeight]types.BlockID
 }
 
 // getAddrs returns n free listening ports by leveraging the
@@ -54,32 +59,43 @@ func connectAnts(ants ...*Ant) error {
 	return nil
 }
 
-// antsAreSynced returns a boolean `true` if all `ants` are running the same
-// blockchain, or `false` if they aren't.
-func antsAreSynced(ants ...*Ant) (bool, error) {
-	var consensuses []api.ConsensusGET
+// antConsensusGroups iterates through all of the ants known to the ant farm
+// and returns the different consensus groups that have been formed between the
+// ants.
+//
+// The outer slice is the list of gorups, and the inner slice is a list of ants
+// in each group.
+func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 	for _, ant := range ants {
 		c := api.NewClient(ant.apiaddr, "")
-		var consensus api.ConsensusGET
-		if err := c.Get("/consensus", &consensus); err != nil {
-			return false, err
+		var cg api.ConsensusGET
+		if err := c.Get("/consensus", &cg); err != nil {
+			return nil, err
 		}
-		consensuses = append(consensuses, consensus)
-	}
+		ant.seenBlocks[cg.Height] = cg.CurrentBlock
 
-	for _, consensus1 := range consensuses {
-		for _, consensus2 := range consensuses {
-			// Ants at the same block height must have the same current block
-			if consensus1.Height == consensus2.Height && consensus1.CurrentBlock != consensus2.CurrentBlock {
-				return false, nil
+		// Compare this ant to all of the other groups. If the ant fits in a
+		// group, insert it. If not, add it to the next group.
+		found := false
+		for gi, group := range groups {
+			for i := types.BlockHeight(0); i < 8; i++ {
+				id1, exists1 := ant.seenBlocks[cg.Height-i]
+				id2, exists2 := group[0].seenBlocks[cg.Height-i] // no group should have a length of zero
+				if exists1 && exists2 && id1 == id2 {
+					groups[gi] = append(groups[gi], ant)
+					found = true
+					break
+				}
 			}
-			// Allow ants to be no more than 3 blocks apart from eachother.
-			if math.Abs(float64(consensus1.Height-consensus2.Height)) > 2 {
-				return false, nil
+			if found {
+				break
 			}
 		}
+		if !found {
+			groups = append(groups, []*Ant{ant})
+		}
 	}
-	return true, nil
+	return groups, nil
 }
 
 // startAnts starts the ants defined by configs and blocks until every API
@@ -161,5 +177,5 @@ func NewAnt(config AntConfig) (*Ant, error) {
 		return nil, err
 	}
 
-	return &Ant{apiaddr, rpcaddr, cmd}, nil
+	return &Ant{apiaddr, rpcaddr, cmd, make(map[types.BlockHeight]types.BlockID)}, nil
 }

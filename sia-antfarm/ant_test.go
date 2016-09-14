@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -167,7 +168,7 @@ func TestConnectAnts(t *testing.T) {
 	}
 }
 
-func TestAntsAreSynced(t *testing.T) {
+func TestAntConsensusGroups(t *testing.T) {
 	if testing.Short() {
 		t.SkipNow()
 	}
@@ -189,23 +190,15 @@ func TestAntsAreSynced(t *testing.T) {
 		}
 	}()
 
-	// should return true with only one ant
-	synced, err := antsAreSynced(ants[0])
+	groups, err := antConsensusGroups(ants...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !synced {
-		t.Fatal("antsAreSynced returned false for only one ant")
+	if len(groups) != 1 {
+		t.Fatal("expected 1 consensus group initially")
 	}
-
-	// should return true with all 3 ants since they start with the same genesis
-	// block and are not mining
-	synced, err = antsAreSynced(ants...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !synced {
-		t.Fatal("antsAreSynced returned false for 3 initial ants")
+	if len(groups[0]) != len(ants) {
+		t.Fatal("expected the consensus group to have all the ants")
 	}
 
 	// Start an ant that is desynced from the rest of the network
@@ -218,11 +211,20 @@ func TestAntsAreSynced(t *testing.T) {
 	// Wait for the other ant to mine a few blocks
 	time.Sleep(time.Second * 10)
 
-	synced, err = antsAreSynced(ants...)
+	groups, err = antConsensusGroups(ants...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if synced {
-		t.Fatal("antsAreSynced returned true for ants with different chains")
+	if len(groups) != 2 {
+		t.Fatal("expected 2 consensus groups")
+	}
+	if len(groups[0]) != len(ants)-1 {
+		t.Fatal("expected the first consensus group to have 3 ants")
+	}
+	if len(groups[1]) != 1 {
+		t.Fatal("expected the second consensus group to have 1 ant")
+	}
+	if !reflect.DeepEqual(groups[1][0], otherAnt) {
+		t.Fatal("expected the miner ant to be in the second consensus group")
 	}
 }
