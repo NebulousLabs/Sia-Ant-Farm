@@ -34,6 +34,9 @@ const (
 	// uploadFileFrequency defines how frequently the renter job uploads files
 	// to the network.
 	uploadFileFrequency = time.Second * 240
+
+	// renterAllowancePeriod defines the block duration of the renter's allowance
+	renterAllowancePeriod = 100
 )
 
 var (
@@ -368,7 +371,7 @@ func (j *JobRunner) storageRenter() {
 	start = time.Now()
 	for {
 		log.Printf("[DEBUG] [renter] [%v] Attempting to set allowance.\n", j.siaDirectory)
-		err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=100", renterAllowance), nil)
+		err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=%v", renterAllowance, renterAllowancePeriod), nil)
 		log.Printf("[DEBUG] [renter] [%v] Allowance attempt complete: %v\n", j.siaDirectory, err)
 		if err == nil {
 			// Success, we can exit the loop.
