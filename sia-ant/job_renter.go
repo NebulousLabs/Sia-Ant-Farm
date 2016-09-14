@@ -77,7 +77,7 @@ func randFillFile(f *os.File, size uint64) (crypto.Hash, error) {
 
 	// Sanity check - the next bit of code assumes that crypto.SegmentSize is
 	// 2x crypto.HashSize. If that's not the case, panic.
-	if crypto.HashSize * 2 != crypto.SegmentSize {
+	if crypto.HashSize*2 != crypto.SegmentSize {
 		build.Critical("randFillFile written for different constants", crypto.HashSize, crypto.SegmentSize)
 	}
 
@@ -233,6 +233,8 @@ func (j *JobRunner) permanentDownloader() {
 // uploading a 500MB file every 240 seconds (10 blocks). The renter should have
 // already set an allowance.
 func (r *renterJob) permanentUploader() {
+	// Make the source files directory
+	os.Mkdir(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), 0700)
 	for {
 		// Upload a file.
 		//
@@ -257,27 +259,27 @@ func (r *renterJob) upload() {
 	defer r.jr.tg.Done()
 
 	/*
-	if i >= 10 {
-		randindex, err := crypto.RandIntn(len(files))
-		if err != nil {
-			log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-			return
+		if i >= 10 {
+			randindex, err := crypto.RandIntn(len(files))
+			if err != nil {
+				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+				return
+			}
+			if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
+				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
+				return
+			}
+			log.Printf("[%v jobStorageRenter INFO]: successfully deleted file\n", j.siaDirectory)
+			os.Remove(files[randindex])
+			files = append(files[:randindex], files[randindex+1:]...)
 		}
-		if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
-			log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-			return
-		}
-		log.Printf("[%v jobStorageRenter INFO]: successfully deleted file\n", j.siaDirectory)
-		os.Remove(files[randindex])
-		files = append(files[:randindex], files[randindex+1:]...)
-	}
 	*/
 
 	// Generate some random data to upload. The file needs to be closed before
 	// the upload to the network starts, so this code is wrapped in a func such
 	// that a `defer Close()` can be used on the file.
 	log.Printf("[INFO] [renter] [%v] File upload preparation beginning.\n", r.jr.siaDirectory)
-	var name string
+	var sourcePath string
 	var merkleRoot crypto.Hash
 	success := func() bool {
 		f, err := ioutil.TempFile(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), "renterFile")
@@ -285,8 +287,8 @@ func (r *renterJob) upload() {
 			log.Printf("[ERROR] [renter] [%v] Unable to open tmp file for renter source file: %v\n", r.jr.siaDirectory, err)
 			return false
 		}
-		name = f.Name()
 		defer f.Close()
+		sourcePath, _ = filepath.Abs(f.Name())
 
 		// Fill the file with random data.
 		merkleRoot, err = randFillFile(f, 500e6)
@@ -303,7 +305,7 @@ func (r *renterJob) upload() {
 	// Add the file to the renter.
 	rf := renterFile{
 		merkleRoot: merkleRoot,
-		sourceFile: name,
+		sourceFile: sourcePath,
 	}
 	r.mu.Lock()
 	r.files = append(r.files, rf)
@@ -311,7 +313,7 @@ func (r *renterJob) upload() {
 	log.Printf("[INFO] [renter] [%v] File upload preparation complete, beginning file upload.\n", r.jr.siaDirectory)
 
 	// Upload the file to the network.
-	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload/%v", name), fmt.Sprintf("source=%v", name), nil); err != nil {
+	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload%v", sourcePath), fmt.Sprintf("source=%v", sourcePath), nil); err != nil {
 		log.Printf("[ERROR] [renter] [%v] Unable to upload file to network: %v", r.jr.siaDirectory, err)
 		return
 	}
