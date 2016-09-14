@@ -46,7 +46,7 @@ func stopSiad(apiAddr string, process *os.Process) {
 		process.Kill()
 	}
 
-	// wait for 20 seconds for siad to terminate, then issue a kill signal.
+	// wait for 120 seconds for siad to terminate, then issue a kill signal.
 	done := make(chan error)
 	go func() {
 		_, err := process.Wait()
