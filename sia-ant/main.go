@@ -30,11 +30,7 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	signal.Notify(sigchan, os.Interrupt)
 	go func() {
 		<-sigchan
-		if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
-			// Call to /daemon/stop failed, maybe the API hasnt finished loading yet.
-			// Fall back to issuing an interrupt signal.
-			cmd.Process.Signal(os.Interrupt)
-		}
+		stopSiad(apiAddr, cmd.Process)
 	}()
 
 	if err := waitForAPI(apiAddr); err != nil {
@@ -42,6 +38,25 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	}
 
 	return cmd, nil
+}
+
+// stopSiad tries to stop the siad running at `apiAddr`, issuing a kill to its `process` after a timeout.
+func stopSiad(apiAddr string, process *os.Process) {
+	if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
+		process.Kill()
+	}
+
+	// wait for 120 seconds for siad to terminate, then issue a kill signal.
+	done := make(chan error)
+	go func() {
+		_, err := process.Wait()
+		done <- err
+	}()
+	select {
+	case <-done:
+	case <-time.After(120 * time.Second):
+		process.Kill()
+	}
 }
 
 // waitForAPI blocks until the Sia API at apiAddr becomes available.
@@ -72,10 +87,7 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 		fmt.Fprintf(os.Stderr, "error starting siad: %v\n", err)
 		return 1
 	}
-
-	defer func() {
-		api.NewClient(apiAddr, "").Get("/daemon/stop", nil)
-	}()
+	defer stopSiad(apiAddr, siad.Process)
 
 	// Construct the job runner
 	j, err := NewJobRunner(apiAddr, "", siaDirectory)
@@ -84,18 +96,12 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 		return 1
 	}
 
-	// Catch os.Interrupt and trigger a clean close of sia-ant.  First, stop all
-	// jobs using JobRunner's ThreadGroup, then stop siad using the API.
+	// Catch os.Interrupt and signal the job runner to stop.
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
 	go func() {
 		<-sigchan
 		j.Stop()
-		if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
-			// Call to /daemon/stop failed, maybe the API hasnt finished loading yet.
-			// Fall back to issuing an interrupt signal.
-			siad.Process.Signal(os.Interrupt)
-		}
 	}()
 
 	// Start up selected jobs
