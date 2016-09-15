@@ -128,7 +128,9 @@ func (r *renterJob) permanentDownloader() {
 	// loop.
 	for {
 		// Download a file.
-		r.download()
+		if err := r.download(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
+		}
 
 		select {
 		case <-r.jr.tg.StopChan():
@@ -179,15 +181,14 @@ func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, error) 
 }
 
 // download will download a random file from the network.
-func (r *renterJob) download() {
+func (r *renterJob) download() error {
 	r.jr.tg.Add()
 	defer r.jr.tg.Done()
 
 	// Download a random file from the renter's file list
 	var renterFiles api.RenterFiles
 	if err := r.jr.client.Get("/renter/files", &renterFiles); err != nil {
-		log.Printf("[ERROR] [renter] [%v]: error calling /renter/files: %v\n", r.jr.siaDirectory, err)
-		return
+		return fmt.Errorf("error calling /renter/files: %v", err)
 	}
 
 	// Filter out files which are not available.
@@ -200,8 +201,7 @@ func (r *renterJob) download() {
 
 	// Do nothing if there are not any files to be downloaded.
 	if len(availableFiles) == 0 {
-		log.Printf("[INFO] [renter] [%v]: tried to download a file, but no files were available\n", r.jr.siaDirectory)
-		return
+		return fmt.Errorf("tried to download a file, but none were available")
 	}
 
 	// Download a file at random.
@@ -211,8 +211,7 @@ func (r *renterJob) download() {
 	// Use ioutil.TempFile to get a random temporary filename.
 	f, err := ioutil.TempFile("", "antfarm-renter")
 	if err != nil {
-		log.Printf("[ERROR] [renter] [%v]: failed to create temporary file for download: %v\n", r.jr.siaDirectory, err)
-		return
+		return fmt.Errorf("failed to create temporary file for download: %v", err)
 	}
 	defer f.Close()
 	destPath, _ := filepath.Abs(f.Name())
@@ -224,8 +223,7 @@ func (r *renterJob) download() {
 	downloadParams := fmt.Sprintf("destination=%v", destPath)
 
 	if err = r.jr.client.Post(downloadPath, downloadParams, nil); err != nil {
-		log.Printf("[ERROR] [renter] [%v]: failed in call to /renter/download: %v\n", r.jr.siaDirectory, err)
-		return
+		return fmt.Errorf("failed in call to /renter/download: %v", err)
 	}
 
 	// Wait for the file to appear in the download list
@@ -233,14 +231,13 @@ func (r *renterJob) download() {
 	for start := time.Now(); time.Since(start) < 3*time.Minute; {
 		select {
 		case <-r.jr.tg.StopChan():
-			break
+			return nil
 		case <-time.After(time.Second):
 		}
 
 		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
 		if err != nil {
-			log.Printf("[ERROR] [renter] [%v]: error waiting for the file to appear in the download queue: %v\n", r.jr.siaDirectory, err)
-			return
+			return fmt.Errorf("error waiting for the file to appear in the download queue: %v", err)
 		}
 		if hasFile {
 			success = true
@@ -248,8 +245,7 @@ func (r *renterJob) download() {
 		}
 	}
 	if !success {
-		log.Printf("[ERROR] [renter] [%v]: file %v did not appear in the renter download list after 1 minute\n", r.jr.siaDirectory, fileToDownload.SiaPath)
-		return
+		return fmt.Errorf("file %v did not appear in the renter download queue", fileToDownload.SiaPath)
 	}
 
 	// Wait for the file to be finished downloading, with a timeout of 15 minutes.
@@ -263,8 +259,7 @@ func (r *renterJob) download() {
 
 		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
 		if err != nil {
-			log.Printf("[ERROR] [renter] [%v]: error waiting for the file to disappear in the download queue: %v\n", r.jr.siaDirectory, err)
-			return
+			return fmt.Errorf("error waiting for the file to disappear from the download queue: %v", err)
 		}
 		if !hasFile {
 			success = true
@@ -272,10 +267,10 @@ func (r *renterJob) download() {
 		}
 	}
 	if !success {
-		log.Printf("[ERROR] [renter] [%v]: file %v did not complete downloading after 15 minutes\n", r.jr.siaDirectory, fileToDownload.SiaPath)
-		return
+		return fmt.Errorf("file %v did not complete downloading", fileToDownload.SiaPath)
 	}
 	log.Printf("[INFO] [renter] [%v]: successfully downloaded %v to %v\n", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
+	return nil
 }
 
 // upload will upload a file to the network. If the api reports that there are
@@ -284,6 +279,7 @@ func (r *renterJob) upload() error {
 	r.jr.tg.Add()
 	defer r.jr.tg.Done()
 
+	// file deletion is disabled until uploading works reliably
 	/*
 		if i >= 10 {
 			randindex, err := crypto.RandIntn(len(files))
