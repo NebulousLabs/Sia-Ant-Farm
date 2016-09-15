@@ -41,6 +41,10 @@ const (
 
 	// renterAllowancePeriod defines the block duration of the renter's allowance
 	renterAllowancePeriod = 100
+
+	// uploadFileSize defines the size of the test files to be uploaded.  Test
+	// files are filled with random data.
+	uploadFileSize = 500e3
 )
 
 var (
@@ -299,7 +303,7 @@ func (r *renterJob) upload() {
 		sourcePath, _ = filepath.Abs(f.Name())
 
 		// Fill the file with random data.
-		merkleRoot, err = randFillFile(f, 500e6)
+		merkleRoot, err = randFillFile(f, uploadFileSize)
 		if err != nil {
 			log.Printf("[ERROR] [renter] [%v] Unable to fill file with randomness: %v\n", r.jr.siaDirectory, err)
 			return false
@@ -351,7 +355,7 @@ func (r *renterJob) upload() {
 				uploadProgress = file.UploadProgress
 			}
 		}
-		log.Printf("[INFO] [renter] [%v]: upload progress: %v%\n", r.jr.siaDirectory, uploadProgress)
+		log.Printf("[INFO] [renter] [%v]: upload progress: %v%%\n", r.jr.siaDirectory, uploadProgress)
 		if uploadProgress == 100 {
 			success = true
 			break
