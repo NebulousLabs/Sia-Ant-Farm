@@ -13,6 +13,7 @@ import (
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/build"
 	"github.com/NebulousLabs/Sia/crypto"
+	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -160,6 +161,25 @@ func (r *renterJob) permanentUploader() {
 	}
 }
 
+// isFileInDownloads grabs the files currently being downloaded by the
+// renter and returns bool `true` if fileToDownload exists in the
+// download list.
+func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, error) {
+	var renterDownloads api.RenterDownloadQueue
+	if err := client.Get("/renter/downloads", &renterDownloads); err != nil {
+		return false, err
+	}
+
+	hasFile := false
+	for _, download := range renterDownloads.Downloads {
+		if download.SiaPath == file.SiaPath {
+			hasFile = true
+		}
+	}
+
+	return hasFile, nil
+}
+
 // download will download a random file from the network.
 func (r *renterJob) download() {
 	r.jr.tg.Add()
@@ -182,6 +202,7 @@ func (r *renterJob) download() {
 
 	// Do nothing if there are not any files to be downloaded.
 	if len(availableFiles) == 0 {
+		log.Printf("[INFO] [renter] [%v]: tried to download a file, but no files were available\n", r.jr.siaDirectory)
 		return
 	}
 
@@ -195,45 +216,35 @@ func (r *renterJob) download() {
 		log.Printf("[ERROR] [renter] [%v]: failed to create temporary file for download: %v\n", r.jr.siaDirectory, err)
 		return
 	}
+	defer f.Close()
 	destPath, _ := filepath.Abs(f.Name())
 	os.Remove(destPath)
 
 	log.Printf("[INFO] [renter] [%v] downloading %v to %v", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
 
-	if err = r.jr.client.Post(fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath), fmt.Sprintf("destination=%v", destPath), nil); err != nil {
+	downloadPath := fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath)
+	downloadParams := fmt.Sprintf("destination=%v", destPath)
+
+	if err = r.jr.client.Post(downloadPath, downloadParams, nil); err != nil {
 		log.Printf("[ERROR] [renter] [%v]: failed in call to /renter/download: %v\n", r.jr.siaDirectory, err)
 		return
 	}
 
-	// isFileInDownloads grabs the files currently being downloaded by the
-	// renter and returns bool `true` if fileToDownload exists in the
-	// download list.
-	isFileInDownloads := func() bool {
-		var renterDownloads api.RenterDownloadQueue
-		if err = r.jr.client.Get("/renter/downloads", &renterDownloads); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: call to /renter/downloads failed: %v\n", r.jr.siaDirectory, err)
-		}
-
-		hasFile := false
-		for _, download := range renterDownloads.Downloads {
-			if download.SiaPath == fileToDownload.SiaPath {
-				hasFile = true
-			}
-		}
-
-		return hasFile
-	}
-
 	// Wait for the file to appear in the download list
 	success := false
-	for start := time.Now(); time.Since(start) < 1*time.Minute; {
+	for start := time.Now(); time.Since(start) < 3*time.Minute; {
 		select {
 		case <-r.jr.tg.StopChan():
 			break
 		case <-time.After(time.Second):
 		}
 
-		if isFileInDownloads() {
+		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
+		if err != nil {
+			log.Printf("[ERROR] [renter] [%v]: error waiting for the file to appear in the download queue: %v\n", r.jr.siaDirectory, err)
+			return
+		}
+		if hasFile {
 			success = true
 			break
 		}
@@ -252,7 +263,12 @@ func (r *renterJob) download() {
 		case <-time.After(time.Second):
 		}
 
-		if !isFileInDownloads() {
+		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
+		if err != nil {
+			log.Printf("[ERROR] [renter] [%v]: error waiting for the file to disappear in the download queue: %v\n", r.jr.siaDirectory, err)
+			return
+		}
+		if !hasFile {
 			success = true
 			break
 		}
@@ -335,7 +351,7 @@ func (r *renterJob) upload() {
 	log.Printf("[INFO] [renter] [%v] /renter/upload call completed successfully.  Waiting for the upload to complete\n", r.jr.siaDirectory)
 
 	// Block until the upload has reached 100%.
-	success = false
+	uploadProgress := 0.0
 	for start := time.Now(); time.Since(start) < maxUploadTime; {
 		select {
 		case <-r.jr.tg.StopChan():
@@ -349,7 +365,6 @@ func (r *renterJob) upload() {
 			return
 		}
 
-		uploadProgress := 0.0
 		for _, file := range rfg.Files {
 			if file.SiaPath == siapath {
 				uploadProgress = file.UploadProgress
@@ -357,14 +372,13 @@ func (r *renterJob) upload() {
 		}
 		log.Printf("[INFO] [renter] [%v]: upload progress: %v%%\n", r.jr.siaDirectory, uploadProgress)
 		if uploadProgress == 100 {
-			success = true
 			break
 		}
 	}
-	if success {
+	if uploadProgress == 100 {
 		log.Printf("[INFO] [renter] [%v]: file has been successfully uploaded to 100%.\n", r.jr.siaDirectory)
 	} else {
-		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.\n", r.jr.siaDirectory, siapath)
+		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.  Progress reached: %v\n", r.jr.siaDirectory, siapath, uploadProgress)
 	}
 }
 
