@@ -364,7 +364,7 @@ func (r *renterJob) upload() {
 	if success {
 		log.Printf("[INFO] [renter] [%v]: file has been successfully uploaded to 100%.\n", r.jr.siaDirectory)
 	} else {
-		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.=n", r.jr.siaDirectory, siapath)
+		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.\n", r.jr.siaDirectory, siapath)
 	}
 }
 
