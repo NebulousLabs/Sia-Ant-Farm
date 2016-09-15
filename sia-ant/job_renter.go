@@ -146,11 +146,9 @@ func (r *renterJob) permanentUploader() {
 	os.Mkdir(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), 0700)
 	for {
 		// Upload a file.
-		//
-		// TODO: Consider having this return an error, and then performing the
-		// logging from here instead of doing the logging in the upload
-		// function.
-		r.upload()
+		if err := r.upload(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
+		}
 
 		// Wait a while between upload attempts.
 		select {
@@ -282,7 +280,7 @@ func (r *renterJob) download() {
 
 // upload will upload a file to the network. If the api reports that there are
 // more than 10 files successfully uploaded, then a file is deleted at random.
-func (r *renterJob) upload() {
+func (r *renterJob) upload() error {
 	r.jr.tg.Add()
 	defer r.jr.tg.Done()
 
@@ -309,11 +307,10 @@ func (r *renterJob) upload() {
 	log.Printf("[INFO] [renter] [%v] File upload preparation beginning.\n", r.jr.siaDirectory)
 	var sourcePath string
 	var merkleRoot crypto.Hash
-	success := func() bool {
+	success, err := func() (bool, error) {
 		f, err := ioutil.TempFile(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), "renterFile")
 		if err != nil {
-			log.Printf("[ERROR] [renter] [%v] Unable to open tmp file for renter source file: %v\n", r.jr.siaDirectory, err)
-			return false
+			return false, fmt.Errorf("unable to open tmp file for renter source file: %v", err)
 		}
 		defer f.Close()
 		sourcePath, _ = filepath.Abs(f.Name())
@@ -321,13 +318,12 @@ func (r *renterJob) upload() {
 		// Fill the file with random data.
 		merkleRoot, err = randFillFile(f, uploadFileSize)
 		if err != nil {
-			log.Printf("[ERROR] [renter] [%v] Unable to fill file with randomness: %v\n", r.jr.siaDirectory, err)
-			return false
+			return false, fmt.Errorf("unable to fill file with randomness: %v", err)
 		}
-		return true
+		return true, nil
 	}()
 	if !success {
-		return
+		return err
 	}
 
 	// use the sourcePath with its leading slash stripped for the sia path
@@ -345,8 +341,7 @@ func (r *renterJob) upload() {
 
 	// Upload the file to the network.
 	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload/%v", siapath), fmt.Sprintf("source=%v", sourcePath), nil); err != nil {
-		log.Printf("[ERROR] [renter] [%v] Unable to upload file to network: %v", r.jr.siaDirectory, err)
-		return
+		return fmt.Errorf("unable to upload file to network: %v", err)
 	}
 	log.Printf("[INFO] [renter] [%v] /renter/upload call completed successfully.  Waiting for the upload to complete\n", r.jr.siaDirectory)
 
@@ -355,14 +350,13 @@ func (r *renterJob) upload() {
 	for start := time.Now(); time.Since(start) < maxUploadTime; {
 		select {
 		case <-r.jr.tg.StopChan():
-			return
+			return nil
 		case <-time.After(time.Second * 20):
 		}
 
 		var rfg api.RenterFiles
 		if err := r.jr.client.Get("/renter/files", &rfg); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: error calling /renter/files: %v\n", r.jr.siaDirectory, err)
-			return
+			return fmt.Errorf("error calling /renter/files: %v", err)
 		}
 
 		for _, file := range rfg.Files {
@@ -375,11 +369,11 @@ func (r *renterJob) upload() {
 			break
 		}
 	}
-	if uploadProgress == 100 {
-		log.Printf("[INFO] [renter] [%v]: file has been successfully uploaded to 100%.\n", r.jr.siaDirectory)
-	} else {
-		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.  Progress reached: %v\n", r.jr.siaDirectory, siapath, uploadProgress)
+	if uploadProgress < 100 {
+		return fmt.Errorf("file with siapath %v could not be fully uploaded after 10 minutes.  progress reached: %v", siapath, uploadProgress)
 	}
+	log.Printf("[INFO] [renter] [%v]: file has been successfully uploaded to 100%.\n", r.jr.siaDirectory)
+	return nil
 }
 
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
