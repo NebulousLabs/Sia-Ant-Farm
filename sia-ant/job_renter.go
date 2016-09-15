@@ -340,7 +340,7 @@ func (r *renterJob) upload() {
 		select {
 		case <-r.jr.tg.StopChan():
 			return
-		case <-time.After(time.Second * 5):
+		case <-time.After(time.Second * 20):
 		}
 
 		var rfg api.RenterFiles
