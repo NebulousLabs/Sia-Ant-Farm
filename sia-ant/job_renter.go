@@ -35,6 +35,10 @@ const (
 	// to the network.
 	uploadFileFrequency = time.Second * 240
 
+	// uploadTimeout defines the maximum time allowed for an upload operation to
+	// complete, ie for an upload to reach 100%.
+	maxUploadTime = time.Minute * 10
+
 	// renterAllowancePeriod defines the block duration of the renter's allowance
 	renterAllowancePeriod = 100
 )
@@ -306,6 +310,9 @@ func (r *renterJob) upload() {
 		return
 	}
 
+	// use the sourcePath with its leading slash stripped for the sia path
+	siapath := sourcePath[1:]
+
 	// Add the file to the renter.
 	rf := renterFile{
 		merkleRoot: merkleRoot,
@@ -317,11 +324,45 @@ func (r *renterJob) upload() {
 	log.Printf("[INFO] [renter] [%v] File upload preparation complete, beginning file upload.\n", r.jr.siaDirectory)
 
 	// Upload the file to the network.
-	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload%v", sourcePath), fmt.Sprintf("source=%v", sourcePath), nil); err != nil {
+	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload/%v", siapath), fmt.Sprintf("source=%v", sourcePath), nil); err != nil {
 		log.Printf("[ERROR] [renter] [%v] Unable to upload file to network: %v", r.jr.siaDirectory, err)
 		return
 	}
-	log.Printf("[INFO] [renter] [%v] Succesfully uploaded file.\n", r.jr.siaDirectory)
+	log.Printf("[INFO] [renter] [%v] /renter/upload call completed successfully.  Waiting for the upload to complete\n", r.jr.siaDirectory)
+
+	// Block until the upload has reached 100%.
+	success = false
+	for start := time.Now(); time.Since(start) < maxUploadTime; {
+		select {
+		case <-r.jr.tg.StopChan():
+			break
+		case <-time.After(time.Second * 5):
+		}
+
+		var rfg api.RenterFiles
+		if err := r.jr.client.Get("/renter/files", &rfg); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: error calling /renter/files: %v\n", r.jr.siaDirectory, err)
+			return
+		}
+
+		doneUploading := false
+		for _, file := range rfg.Files {
+			if file.SiaPath == siapath {
+				if file.Available {
+					doneUploading = true
+				}
+			}
+		}
+		if doneUploading {
+			success = true
+			break
+		}
+	}
+	if success {
+		log.Printf("[INFO] [renter] [%v]: file has been successfully uploaded to 100%.\n", r.jr.siaDirectory)
+	} else {
+		log.Printf("[ERROR] [renter] [%v]: file with siapath %v could not be fully uploaded after 10 minutes.=n", r.jr.siaDirectory, siapath)
+	}
 }
 
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
