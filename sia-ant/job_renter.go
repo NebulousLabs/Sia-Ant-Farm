@@ -253,7 +253,7 @@ func (r *renterJob) download() error {
 	for start := time.Now(); time.Since(start) < 15*time.Minute; {
 		select {
 		case <-r.jr.tg.StopChan():
-			break
+			return nil
 		case <-time.After(time.Second):
 		}
 
