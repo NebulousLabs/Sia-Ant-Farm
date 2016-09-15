@@ -345,15 +345,14 @@ func (r *renterJob) upload() {
 			return
 		}
 
-		doneUploading := false
+		uploadProgress := 0.0
 		for _, file := range rfg.Files {
 			if file.SiaPath == siapath {
-				if file.Available {
-					doneUploading = true
-				}
+				uploadProgress = file.UploadProgress
 			}
 		}
-		if doneUploading {
+		log.Printf("[INFO] [renter] [%v]: upload progress: %v%\n", r.jr.siaDirectory, uploadProgress)
+		if uploadProgress == 100 {
 			success = true
 			break
 		}
