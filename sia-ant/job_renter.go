@@ -335,7 +335,7 @@ func (r *renterJob) upload() {
 	for start := time.Now(); time.Since(start) < maxUploadTime; {
 		select {
 		case <-r.jr.tg.StopChan():
-			break
+			return
 		case <-time.After(time.Second * 5):
 		}
 
