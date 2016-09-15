@@ -112,125 +112,22 @@ func randFillFile(f *os.File, size uint64) (crypto.Hash, error) {
 	return t.Root(), nil
 }
 
-/*
 // permanentDownloader is a function that continuously runs for the renter job,
 // downloading a file at random every 400 seconds.
-func (j *JobRunner) permanentDownloader() {
+func (r *renterJob) permanentDownloader() {
 	// Wait for the first file to be uploaded before starting the download
 	// loop.
-	select {
-	case <-j.tg.StopChan():
-		return
-	case <-time.After(uploadFileFrequency*2)
-	}
-
-	// Indefinitely download a file every downloadFileFrequency.
 	for {
+		// Download a file.
+		r.download()
+
 		select {
-		case <-j.tg.StopChan():
+		case <-r.jr.tg.StopChan():
 			return
 		case <-time.After(downloadFileFrequency):
 		}
-
-		func() {
-			j.tg.Add()
-			defer j.tg.Done()
-
-			// Download a random file from the renter's file list
-			var renterFiles api.RenterFiles
-			if err := j.client.Get("/renter/files", &renterFiles); err != nil {
-				log.Printf("%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-			}
-
-			// Do nothing if there are not any files to be downloaded.
-			if len(renterFiles.Files) == 0 {
-				return
-			}
-
-			// Filter out files which are not available.
-			availableFiles := renterFiles.Files[:0]
-			for _, file := range renterFiles.Files {
-				if file.Available {
-					availableFiles = append(availableFiles, file)
-				}
-			}
-
-			// Download a file at random.
-			randindex, _ := crypto.RandIntn(len(availableFiles))
-			fileToDownload := availableFiles[randindex]
-
-			f, err := ioutil.TempFile("", "antfarm-renter")
-			if err != nil {
-				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-			}
-			defer os.Remove(f.Name())
-
-			if err = j.client.Post(fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath), fmt.Sprintf("destination=%v", f.Name()), nil); err != nil {
-				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-				return
-			}
-
-			// isFileInDownloads grabs the files currently being downloaded by the
-			// renter and returns bool `true` if fileToDownload exists in the
-			// download list.
-			isFileInDownloads := func() bool {
-				var renterDownloads api.RenterDownloadQueue
-				if err = j.client.Get("/renter/downloads", &renterDownloads); err != nil {
-					log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-				}
-
-				hasFile := false
-				for _, download := range renterDownloads.Downloads {
-					if download.SiaPath == fileToDownload.SiaPath {
-						hasFile = true
-					}
-				}
-
-				return hasFile
-			}
-
-			// Wait for the file to appear in the download list
-			success := false
-			for start := time.Now(); time.Since(start) < 1*time.Minute; {
-				select {
-				case <-j.tg.StopChan():
-					break
-				case <-time.After(time.Second):
-				}
-
-				if isFileInDownloads() {
-					success = true
-					break
-				}
-			}
-			if !success {
-				log.Printf("[%v jobStorageRenter ERROR]: file %v did not appear in the renter download list\n", j.siaDirectory, fileToDownload.SiaPath)
-				return
-			}
-
-			// Wait for the file to be finished downloading, with a timeout of 15 minutes.
-			success = false
-			for start := time.Now(); time.Since(start) < 15*time.Minute; {
-				select {
-				case <-j.tg.StopChan():
-					break
-				case <-time.After(time.Second):
-				}
-
-				if !isFileInDownloads() {
-					success = true
-					break
-				}
-			}
-			if !success {
-				log.Printf("[%v jobStorageRenter ERROR]: file %v did not complete downloading\n", j.siaDirectory, fileToDownload.SiaPath)
-				return
-			}
-			log.Printf("[%v jobStorageRenter INFO]: succesfully downloaded file\n", j.siaDirectory)
-		}()
 	}
 }
-*/
 
 // permanentUploader is a function that continuously runs for the renter job,
 // uploading a 500MB file every 240 seconds (10 blocks). The renter should have
@@ -253,6 +150,110 @@ func (r *renterJob) permanentUploader() {
 		case <-time.After(uploadFileFrequency):
 		}
 	}
+}
+
+// download will download a random file from the network.
+func (r *renterJob) download() {
+	r.jr.tg.Add()
+	defer r.jr.tg.Done()
+
+	// Download a random file from the renter's file list
+	var renterFiles api.RenterFiles
+	if err := r.jr.client.Get("/renter/files", &renterFiles); err != nil {
+		log.Printf("[ERROR] [renter] [%v]: error calling /renter/files: %v\n", r.jr.siaDirectory, err)
+		return
+	}
+
+	// Filter out files which are not available.
+	availableFiles := renterFiles.Files[:0]
+	for _, file := range renterFiles.Files {
+		if file.Available {
+			availableFiles = append(availableFiles, file)
+		}
+	}
+
+	// Do nothing if there are not any files to be downloaded.
+	if len(availableFiles) == 0 {
+		return
+	}
+
+	// Download a file at random.
+	randindex, _ := crypto.RandIntn(len(availableFiles))
+	fileToDownload := availableFiles[randindex]
+
+	// Use ioutil.TempFile to get a random temporary filename.
+	f, err := ioutil.TempFile("", "antfarm-renter")
+	if err != nil {
+		log.Printf("[ERROR] [renter] [%v]: failed to create temporary file for download: %v\n", r.jr.siaDirectory, err)
+		return
+	}
+	destPath, _ := filepath.Abs(f.Name())
+	os.Remove(destPath)
+
+	log.Printf("[INFO] [renter] [%v] downloading %v to %v", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
+
+	if err = r.jr.client.Post(fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath), fmt.Sprintf("destination=%v", destPath), nil); err != nil {
+		log.Printf("[ERROR] [renter] [%v]: failed in call to /renter/download: %v\n", r.jr.siaDirectory, err)
+		return
+	}
+
+	// isFileInDownloads grabs the files currently being downloaded by the
+	// renter and returns bool `true` if fileToDownload exists in the
+	// download list.
+	isFileInDownloads := func() bool {
+		var renterDownloads api.RenterDownloadQueue
+		if err = r.jr.client.Get("/renter/downloads", &renterDownloads); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: call to /renter/downloads failed: %v\n", r.jr.siaDirectory, err)
+		}
+
+		hasFile := false
+		for _, download := range renterDownloads.Downloads {
+			if download.SiaPath == fileToDownload.SiaPath {
+				hasFile = true
+			}
+		}
+
+		return hasFile
+	}
+
+	// Wait for the file to appear in the download list
+	success := false
+	for start := time.Now(); time.Since(start) < 1*time.Minute; {
+		select {
+		case <-r.jr.tg.StopChan():
+			break
+		case <-time.After(time.Second):
+		}
+
+		if isFileInDownloads() {
+			success = true
+			break
+		}
+	}
+	if !success {
+		log.Printf("[ERROR] [renter] [%v]: file %v did not appear in the renter download list after 1 minute\n", r.jr.siaDirectory, fileToDownload.SiaPath)
+		return
+	}
+
+	// Wait for the file to be finished downloading, with a timeout of 15 minutes.
+	success = false
+	for start := time.Now(); time.Since(start) < 15*time.Minute; {
+		select {
+		case <-r.jr.tg.StopChan():
+			break
+		case <-time.After(time.Second):
+		}
+
+		if !isFileInDownloads() {
+			success = true
+			break
+		}
+	}
+	if !success {
+		log.Printf("[ERROR] [renter] [%v]: file %v did not complete downloading after 15 minutes\n", r.jr.siaDirectory, fileToDownload.SiaPath)
+		return
+	}
+	log.Printf("[INFO] [renter] [%v]: successfully downloaded %v to %v\n", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
 }
 
 // upload will upload a file to the network. If the api reports that there are
@@ -395,5 +396,5 @@ func (j *JobRunner) storageRenter() {
 		jr: j,
 	}
 	go rj.permanentUploader()
-	// go j.permanentDownloader()
+	go rj.permanentDownloader()
 }
