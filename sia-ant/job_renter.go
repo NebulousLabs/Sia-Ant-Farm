@@ -163,21 +163,23 @@ func (r *renterJob) permanentUploader() {
 
 // isFileInDownloads grabs the files currently being downloaded by the
 // renter and returns bool `true` if fileToDownload exists in the
-// download list.
-func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, error) {
+// download list.  It also returns the DownloadInfo for the requested `file`.
+func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, modules.DownloadInfo, error) {
+	var dlinfo modules.DownloadInfo
 	var renterDownloads api.RenterDownloadQueue
 	if err := client.Get("/renter/downloads", &renterDownloads); err != nil {
-		return false, err
+		return false, dlinfo, err
 	}
 
 	hasFile := false
 	for _, download := range renterDownloads.Downloads {
 		if download.SiaPath == file.SiaPath {
 			hasFile = true
+			dlinfo = download
 		}
 	}
 
-	return hasFile, nil
+	return hasFile, dlinfo, nil
 }
 
 // download will download a random file from the network.
@@ -235,7 +237,7 @@ func (r *renterJob) download() error {
 		case <-time.After(time.Second):
 		}
 
-		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
+		hasFile, _, err := isFileInDownloads(r.jr.client, fileToDownload)
 		if err != nil {
 			return fmt.Errorf("error waiting for the file to appear in the download queue: %v", err)
 		}
@@ -257,13 +259,15 @@ func (r *renterJob) download() error {
 		case <-time.After(time.Second):
 		}
 
-		hasFile, err := isFileInDownloads(r.jr.client, fileToDownload)
+		hasFile, info, err := isFileInDownloads(r.jr.client, fileToDownload)
 		if err != nil {
 			return fmt.Errorf("error waiting for the file to disappear from the download queue: %v", err)
 		}
 		if !hasFile {
 			success = true
 			break
+		} else {
+			log.Printf("[INFO] [renter] [%v]: currently downloading %v, received %v pieces\n", r.jr.siaDirectory, fileToDownload.SiaPath, info.Received)
 		}
 	}
 	if !success {
