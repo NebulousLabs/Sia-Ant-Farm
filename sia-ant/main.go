@@ -123,11 +123,14 @@ func runSiaAnt(siadPath, apiAddr, rpcAddr, hostAddr, siaDirectory string, runGat
 }
 
 func main() {
+	// Ant general settings.
 	siadPath := flag.String("siad", "siad", "path to siad executable")
 	apiAddr := flag.String("api-addr", "localhost:9980", "api address to bind siad")
 	rpcAddr := flag.String("rpc-addr", "localhost:9981", "rpc address to bind siad")
 	hostAddr := flag.String("host-addr", "localhost:9982", "host address to bind siad")
 	siaDirectory := flag.String("sia-directory", "./", "sia data directory")
+
+	// Ant jobs.
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
 	runMining := flag.Bool("mining", false, "enable mining test jobs")
 	runRenter := flag.Bool("renter", false, "enable renter test jobs")
