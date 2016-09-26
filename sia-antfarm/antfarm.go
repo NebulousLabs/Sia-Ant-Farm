@@ -1,15 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 type (
 	// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
 	AntfarmConfig struct {
+		ListenAddress string
 		AntConfigs    []AntConfig
 		AutoConnect   bool
 		ExternalFarms []string
@@ -18,8 +24,14 @@ type (
 	// antFarm defines the 'antfarm' type. antFarm orchestrates a collection of
 	// ants and provides an API server to interact with them.
 	antFarm struct {
-		wg   sync.WaitGroup
-		ants []*Ant
+		apiListener net.Listener
+		wg          sync.WaitGroup
+		ants        []*Ant
+		router      *httprouter.Router
+	}
+
+	antsGET struct {
+		Ants []*Ant
 	}
 )
 
@@ -53,7 +65,24 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 
 	go farm.permanentSyncMonitor()
 
+	// construct the router and serve the API.
+	farm.router = httprouter.New()
+	farm.router.GET("/ants", farm.getAnts)
+
+	farm.apiListener, err = net.Listen("tcp", config.ListenAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	return farm, nil
+}
+
+// ServeAPI serves the antFarm's http API.
+func (af *antFarm) ServeAPI() error {
+	af.wg.Add(1)
+	defer af.wg.Done()
+	http.Serve(af.apiListener, af.router)
+	return nil
 }
 
 // permanentSyncMonitor checks that all ants in the antFarm are on the same
@@ -80,15 +109,25 @@ func (af *antFarm) permanentSyncMonitor() {
 				}
 				log.Println("Group ", i+1)
 				for _, ant := range group {
-					log.Println(ant.apiaddr)
+					log.Println(ant.APIAddr)
 				}
 			}
 		}
 	}
 }
 
+// getAnts is a http handler that returns the ants currently running on the
+// antfarm.
+func (af *antFarm) getAnts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	err := json.NewEncoder(w).Encode(antsGET{Ants: af.ants})
+	if err != nil {
+		http.Error(w, "error encoding ants", 500)
+	}
+}
+
 // Close signals all the ants to stop and waits for them to return.
 func (af *antFarm) Close() error {
+	af.apiListener.Close()
 	for _, ant := range af.ants {
 		ant.Process.Signal(os.Interrupt)
 	}
