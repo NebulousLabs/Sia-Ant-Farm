@@ -6,6 +6,10 @@ import (
 
 // verify that createAntfarm() creates a new antfarm correctly.
 func TestNewAntfarm(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	config := AntfarmConfig{
 		AntConfigs: []AntConfig{
 			{
