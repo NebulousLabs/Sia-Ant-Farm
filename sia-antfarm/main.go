@@ -42,6 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer farm.Close()
+	go farm.ServeAPI()
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)

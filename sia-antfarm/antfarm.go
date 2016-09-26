@@ -18,6 +18,9 @@ type (
 		ListenAddress string
 		AntConfigs    []AntConfig
 		AutoConnect   bool
+
+		// ExternalFarms is a slice of net addresses representing the API addresses
+		// of other ant farms to connect to.
 		ExternalFarms []string
 	}
 
@@ -83,6 +86,24 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	farm.router.GET("/ants", farm.getAnts)
 
 	return farm, nil
+}
+
+// connectExternalAntfarm connects the current antfarm to an external antfarm,
+// using the antfarm api at externalAddress.
+func (af *antFarm) connectExternalAntfarm(externalAddress string) error {
+	res, err := http.DefaultClient.Get("http://" + externalAddress + "/ants")
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	var ag antsGET
+	err = json.NewDecoder(res.Body).Decode(&ag)
+	if err != nil {
+		return err
+	}
+	ants := append(af.ants, ag.Ants...)
+	return connectAnts(ants...)
 }
 
 // ServeAPI serves the antFarm's http API.
