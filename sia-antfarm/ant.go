@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -51,7 +52,12 @@ func connectAnts(ants ...*Ant) error {
 	targetAnt := ants[0]
 	c := api.NewClient(targetAnt.APIAddr, "")
 	for _, ant := range ants[1:] {
-		err := c.Post(fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.RPCAddr), "", nil)
+		connectQuery := fmt.Sprintf("/gateway/connect/%v", ant.RPCAddr)
+		addr := modules.NetAddress(ant.RPCAddr)
+		if addr.Host() == "" {
+			connectQuery = fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.RPCAddr)
+		}
+		err := c.Post(connectQuery, "", nil)
 		if err != nil {
 			return err
 		}
@@ -138,7 +144,6 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	// temporary directory.
 	siadir := config.SiaDirectory
 	if siadir == "" {
-		os.Mkdir("./antfarm-data", 0700)
 		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
 		if err != nil {
 			return nil, err

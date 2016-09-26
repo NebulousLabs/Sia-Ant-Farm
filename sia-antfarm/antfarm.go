@@ -42,6 +42,7 @@ type (
 func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	// clear old antfarm data before creating an antfarm
 	os.RemoveAll("./antfarm-data")
+	os.MkdirAll("./antfarm-data", 0700)
 
 	farm := &antFarm{}
 
@@ -63,6 +64,12 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		// if the AutoConnect flag is set, use connectAnts to bootstrap the network.
 		if config.AutoConnect {
 			if err = connectAnts(ants...); err != nil {
+				return err
+			}
+		}
+		// connect the external ant farms
+		for _, address := range config.ExternalFarms {
+			if err = farm.connectExternalAntfarm(address); err != nil {
 				return err
 			}
 		}
@@ -156,7 +163,9 @@ func (af *antFarm) getAnts(w http.ResponseWriter, r *http.Request, _ httprouter.
 
 // Close signals all the ants to stop and waits for them to return.
 func (af *antFarm) Close() error {
-	af.apiListener.Close()
+	if af.apiListener != nil {
+		af.apiListener.Close()
+	}
 	for _, ant := range af.ants {
 		ant.Process.Signal(os.Interrupt)
 	}
