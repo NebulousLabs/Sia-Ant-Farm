@@ -56,11 +56,24 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		}
 	}()
 
-	// if the AutoConnect flag is set, use connectAnts to bootstrap the network.
-	if config.AutoConnect {
-		if err = connectAnts(ants...); err != nil {
-			return nil, err
+	err = func() error {
+		// if the AutoConnect flag is set, use connectAnts to bootstrap the network.
+		if config.AutoConnect {
+			if err = connectAnts(ants...); err != nil {
+				return err
+			}
 		}
+		// start up the api server listener
+		farm.apiListener, err = net.Listen("tcp", config.ListenAddress)
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	if err != nil {
+		farm.Close()
+		return nil, err
 	}
 
 	go farm.permanentSyncMonitor()
@@ -68,11 +81,6 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	// construct the router and serve the API.
 	farm.router = httprouter.New()
 	farm.router.GET("/ants", farm.getAnts)
-
-	farm.apiListener, err = net.Listen("tcp", config.ListenAddress)
-	if err != nil {
-		return nil, err
-	}
 
 	return farm, nil
 }
