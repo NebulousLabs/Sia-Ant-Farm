@@ -20,7 +20,7 @@ type (
 		AutoConnect   bool
 
 		// ExternalFarms is a slice of net addresses representing the API addresses
-		// of other ant farms to connect to.
+		// of other antFarms to connect to.
 		ExternalFarms []string
 	}
 
@@ -29,8 +29,14 @@ type (
 	antFarm struct {
 		apiListener net.Listener
 		wg          sync.WaitGroup
-		ants        []*Ant
-		router      *httprouter.Router
+
+		// ants is a slice of Ants in this antfarm.
+		ants []*Ant
+
+		// externalAnts is a slice of externally connected ants, that is, ants that
+		// are connected to this antfarm but managed by another antfarm.
+		externalAnts []*Ant
+		router       *httprouter.Router
 	}
 )
 
@@ -63,7 +69,7 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 				return err
 			}
 		}
-		// connect the external ant farms
+		// connect the external antFarms
 		for _, address := range config.ExternalFarms {
 			if err = farm.connectExternalAntfarm(address); err != nil {
 				return err
@@ -76,7 +82,6 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		}
 		return nil
 	}()
-
 	if err != nil {
 		farm.Close()
 		return nil, err
@@ -89,6 +94,12 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	farm.router.GET("/ants", farm.getAnts)
 
 	return farm, nil
+}
+
+// allAnts returns all ants, external and internal, associated with this
+// antFarm.
+func (af *antFarm) allAnts() []*Ant {
+	return append(af.ants, af.externalAnts...)
 }
 
 // connectExternalAntfarm connects the current antfarm to an external antfarm,
@@ -105,8 +116,8 @@ func (af *antFarm) connectExternalAntfarm(externalAddress string) error {
 	if err != nil {
 		return err
 	}
-	ants := append(af.ants, externalAnts...)
-	return connectAnts(ants...)
+	af.externalAnts = append(af.externalAnts, externalAnts...)
+	return connectAnts(af.allAnts()...)
 }
 
 // ServeAPI serves the antFarm's http API.
@@ -126,7 +137,7 @@ func (af *antFarm) permanentSyncMonitor() {
 	// Every 20 seconds, list all consensus groups.
 	for {
 		time.Sleep(time.Second * 20)
-		groups, err := antConsensusGroups(af.ants...)
+		groups, err := antConsensusGroups(af.allAnts()...)
 		if err != nil {
 			log.Println("error checking sync status of antfarm: ", err)
 			continue

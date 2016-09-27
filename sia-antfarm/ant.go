@@ -65,7 +65,7 @@ func connectAnts(ants ...*Ant) error {
 	return nil
 }
 
-// antConsensusGroups iterates through all of the ants known to the ant farm
+// antConsensusGroups iterates through all of the ants known to the antFarm
 // and returns the different consensus groups that have been formed between the
 // ants.
 //
