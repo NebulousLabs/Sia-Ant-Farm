@@ -209,7 +209,7 @@ func TestAntConsensusGroups(t *testing.T) {
 	ants = append(ants, otherAnt)
 
 	// Wait for the other ant to mine a few blocks
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 30)
 
 	groups, err = antConsensusGroups(ants...)
 	if err != nil {
