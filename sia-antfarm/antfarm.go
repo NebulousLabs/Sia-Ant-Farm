@@ -32,10 +32,6 @@ type (
 		ants        []*Ant
 		router      *httprouter.Router
 	}
-
-	antsGET struct {
-		Ants []*Ant
-	}
 )
 
 // createAntfarm creates a new antFarm given the supplied AntfarmConfig
@@ -104,12 +100,12 @@ func (af *antFarm) connectExternalAntfarm(externalAddress string) error {
 	}
 	defer res.Body.Close()
 
-	var ag antsGET
-	err = json.NewDecoder(res.Body).Decode(&ag)
+	var externalAnts []*Ant
+	err = json.NewDecoder(res.Body).Decode(&externalAnts)
 	if err != nil {
 		return err
 	}
-	ants := append(af.ants, ag.Ants...)
+	ants := append(af.ants, externalAnts...)
 	return connectAnts(ants...)
 }
 
@@ -155,7 +151,7 @@ func (af *antFarm) permanentSyncMonitor() {
 // getAnts is a http handler that returns the ants currently running on the
 // antfarm.
 func (af *antFarm) getAnts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	err := json.NewEncoder(w).Encode(antsGET{Ants: af.ants})
+	err := json.NewEncoder(w).Encode(af.ants)
 	if err != nil {
 		http.Error(w, "error encoding ants", 500)
 	}

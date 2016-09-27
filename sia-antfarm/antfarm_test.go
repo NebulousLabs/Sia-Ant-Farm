@@ -42,15 +42,15 @@ func TestNewAntfarm(t *testing.T) {
 	}
 	defer res.Body.Close()
 
-	var ag antsGET
-	err = json.NewDecoder(res.Body).Decode(&ag)
+	var ants []*Ant
+	err = json.NewDecoder(res.Body).Decode(&ants)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ag.Ants) != len(config.AntConfigs) {
+	if len(ants) != len(config.AntConfigs) {
 		t.Fatal("expected /ants to return the correct number of ants")
 	}
-	if ag.Ants[0].RPCAddr != config.AntConfigs[0].RPCAddr {
+	if ants[0].RPCAddr != config.AntConfigs[0].RPCAddr {
 		t.Fatal("expected /ants to return the correct rpc address")
 	}
 }
