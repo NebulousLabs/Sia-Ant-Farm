@@ -18,7 +18,7 @@ install:
 	go install -race $(pkgs)
 
 test: fmt vet install
-	go test -timeout=60s -race -v $(pkgs)
+	go test -timeout=600s -race -v $(pkgs)
 
 lint:
 	@for package in $(pkgs); do 													 \
