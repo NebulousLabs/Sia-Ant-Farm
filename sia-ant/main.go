@@ -132,7 +132,7 @@ func main() {
 
 	// Ant jobs.
 	runGateway := flag.Bool("gateway", false, "enable gateway test jobs")
-	runMining := flag.Bool("mining", false, "enable mining test jobs")
+	runMining := flag.Bool("miner", false, "enable mining test jobs")
 	runRenter := flag.Bool("renter", false, "enable renter test jobs")
 	runHost := flag.Bool("host", false, "enable host jobs")
 	flag.Parse()
