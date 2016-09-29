@@ -40,7 +40,8 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	return cmd, nil
 }
 
-// stopSiad tries to stop the siad running at `apiAddr`, issuing a kill to its `process` after a timeout.
+// stopSiad tries to stop the siad running at `apiAddr`, issuing a kill to its
+// `process` after a timeout.
 func stopSiad(apiAddr string, process *os.Process) {
 	if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
 		process.Kill()
