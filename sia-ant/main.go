@@ -33,7 +33,7 @@ func NewSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 		stopSiad(apiAddr, cmd.Process)
 	}()
 
-	if err := waitForAPI(apiAddr); err != nil {
+	if err := waitForAPI(apiAddr, cmd); err != nil {
 		return nil, err
 	}
 
@@ -60,19 +60,32 @@ func stopSiad(apiAddr string, process *os.Process) {
 }
 
 // waitForAPI blocks until the Sia API at apiAddr becomes available.
-func waitForAPI(apiAddr string) error {
+// if siad returns while waiting for the api, return an error.
+func waitForAPI(apiAddr string, siad *exec.Cmd) error {
 	c := api.NewClient(apiAddr, "")
+
+	exitchan := make(chan error)
+	go func() {
+		exitchan <- siad.Wait()
+	}()
 
 	// Wait for the Sia API to become available.
 	success := false
 	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
-		if err := c.Get("/consensus", nil); err == nil {
-			success = true
+		if success {
 			break
+		}
+		select {
+		case err := <-exitchan:
+			return errors.New("siad exited unexpectedly while waiting for api, exited with error: " + err.Error())
+		default:
+			if err := c.Get("/consensus", nil); err == nil {
+				success = true
+			}
 		}
 	}
 	if !success {
-		c.Get("/daemon/stop", nil)
+		stopSiad(apiAddr, siad.Process)
 		return errors.New("timeout: couldnt reach api after 5 minutes")
 	}
 	return nil
