@@ -61,29 +61,27 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 			farm.wg.Done()
 		}
 	}()
-
-	err = func() error {
-		// if the AutoConnect flag is set, use connectAnts to bootstrap the network.
-		if config.AutoConnect {
-			if err = connectAnts(ants...); err != nil {
-				return err
-			}
-		}
-		// connect the external antFarms
-		for _, address := range config.ExternalFarms {
-			if err = farm.connectExternalAntfarm(address); err != nil {
-				return err
-			}
-		}
-		// start up the api server listener
-		farm.apiListener, err = net.Listen("tcp", config.ListenAddress)
+	defer func() {
 		if err != nil {
-			return err
+			farm.Close()
 		}
-		return nil
 	}()
+
+	// if the AutoConnect flag is set, use connectAnts to bootstrap the network.
+	if config.AutoConnect {
+		if err = connectAnts(ants...); err != nil {
+			return nil, err
+		}
+	}
+	// connect the external antFarms
+	for _, address := range config.ExternalFarms {
+		if err = farm.connectExternalAntfarm(address); err != nil {
+			return nil, err
+		}
+	}
+	// start up the api server listener
+	farm.apiListener, err = net.Listen("tcp", config.ListenAddress)
 	if err != nil {
-		farm.Close()
 		return nil, err
 	}
 
