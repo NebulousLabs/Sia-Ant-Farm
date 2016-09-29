@@ -202,7 +202,7 @@ func TestAntConsensusGroups(t *testing.T) {
 	}
 
 	// Start an ant that is desynced from the rest of the network
-	otherAnt, err := NewAnt(AntConfig{APIAddr: "", RPCAddr: "", HostAddr: "", SiaDirectory: "", Jobs: []string{"mining"}})
+	otherAnt, err := NewAnt(AntConfig{APIAddr: "", RPCAddr: "", HostAddr: "", SiaDirectory: "", Jobs: []string{"miner"}})
 	if err != nil {
 		t.Fatal(err)
 	}

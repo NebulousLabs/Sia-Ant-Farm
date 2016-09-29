@@ -1,0 +1,32 @@
+{
+	"antconfigs": 
+	[ 
+		{
+			"jobs": [
+				"gateway",
+				"miner"
+			]
+		},
+		{
+			"jobs": [
+				"host"
+			]
+		},
+		{
+			"jobs": [
+				"host"
+			]
+		},
+		{
+			"jobs": [
+				"host"
+			]
+		},
+		{
+			"jobs": [
+				"renter"
+			]
+		}
+	],
+	"autoconnect": true
+}
