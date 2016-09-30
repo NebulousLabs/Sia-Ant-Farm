@@ -78,7 +78,7 @@ func waitForAPI(apiAddr string, siad *exec.Cmd) error {
 		}
 		select {
 		case err := <-exitchan:
-			return errors.New("siad exited unexpectedly while waiting for api, exited with error: " + err.Error())
+			return fmt.Errorf("siad exited unexpectedly while waiting for api, exited with error: %v\n", err)
 		default:
 			if err := c.Get("/consensus", nil); err == nil {
 				success = true
