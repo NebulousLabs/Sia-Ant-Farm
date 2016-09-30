@@ -10,14 +10,15 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
 
 // Ant defines the fields used by a Sia Ant.
 type Ant struct {
-	apiaddr string
-	rpcaddr string
-	*exec.Cmd
+	APIAddr   string
+	RPCAddr   string
+	*exec.Cmd `json:"-"`
 
 	// A variable to track which blocks + heights the sync detector has seen
 	// for this ant. The map will just keep growing, but it shouldn't take up a
@@ -49,9 +50,14 @@ func connectAnts(ants ...*Ant) error {
 		return errors.New("you must call connectAnts with at least two ants.")
 	}
 	targetAnt := ants[0]
-	c := api.NewClient(targetAnt.apiaddr, "")
+	c := api.NewClient(targetAnt.APIAddr, "")
 	for _, ant := range ants[1:] {
-		err := c.Post(fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.rpcaddr), "", nil)
+		connectQuery := fmt.Sprintf("/gateway/connect/%v", ant.RPCAddr)
+		addr := modules.NetAddress(ant.RPCAddr)
+		if addr.Host() == "" {
+			connectQuery = fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.RPCAddr)
+		}
+		err := c.Post(connectQuery, "", nil)
 		if err != nil {
 			return err
 		}
@@ -59,7 +65,7 @@ func connectAnts(ants ...*Ant) error {
 	return nil
 }
 
-// antConsensusGroups iterates through all of the ants known to the ant farm
+// antConsensusGroups iterates through all of the ants known to the antFarm
 // and returns the different consensus groups that have been formed between the
 // ants.
 //
@@ -67,7 +73,7 @@ func connectAnts(ants ...*Ant) error {
 // in each group.
 func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 	for _, ant := range ants {
-		c := api.NewClient(ant.apiaddr, "")
+		c := api.NewClient(ant.APIAddr, "")
 		var cg api.ConsensusGET
 		if err := c.Get("/consensus", &cg); err != nil {
 			return nil, err
@@ -113,7 +119,7 @@ func startAnts(configs ...AntConfig) ([]*Ant, error) {
 
 	// Wait for every ant API to become reachable.
 	for _, ant := range ants {
-		c := api.NewClient(ant.apiaddr, "")
+		c := api.NewClient(ant.APIAddr, "")
 		for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
 			if err := c.Get("/consensus", nil); err == nil {
 				break
@@ -138,7 +144,6 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	// temporary directory.
 	siadir := config.SiaDirectory
 	if siadir == "" {
-		os.Mkdir("./antfarm-data", 0700)
 		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
 		if err != nil {
 			return nil, err
@@ -152,30 +157,30 @@ func NewAnt(config AntConfig) (*Ant, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiaddr := "localhost" + addrs[0]
-	rpcaddr := addrs[1]
+	APIAddr := "localhost" + addrs[0]
+	RPCAddr := addrs[1]
 	hostaddr := addrs[2]
 
 	// Override the automatically generated addresses with the ones in AntConfig,
 	// if they exist.
 	if config.APIAddr != "" {
-		apiaddr = config.APIAddr
+		APIAddr = config.APIAddr
 	}
 	if config.RPCAddr != "" {
-		rpcaddr = config.RPCAddr
+		RPCAddr = config.RPCAddr
 	}
 	if config.HostAddr != "" {
 		hostaddr = config.HostAddr
 	}
 
-	fmt.Printf("[%v jobs %v] APIAddr: %v RPCAddr: %v HostAddr: %v\n", siadir, config.Jobs, apiaddr, rpcaddr, hostaddr)
+	fmt.Printf("[%v jobs %v] APIAddr: %v RPCAddr: %v HostAddr: %v\n", siadir, config.Jobs, APIAddr, RPCAddr, hostaddr)
 
-	args = append(args, "-api-addr", apiaddr, "-rpc-addr", rpcaddr, "-host-addr", hostaddr, "-sia-directory", siadir)
+	args = append(args, "-api-addr", APIAddr, "-rpc-addr", RPCAddr, "-host-addr", hostaddr, "-sia-directory", siadir)
 	cmd := exec.Command("sia-ant", args...)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
 
-	return &Ant{apiaddr, rpcaddr, cmd, make(map[types.BlockHeight]types.BlockID)}, nil
+	return &Ant{APIAddr, RPCAddr, cmd, make(map[types.BlockHeight]types.BlockID)}, nil
 }

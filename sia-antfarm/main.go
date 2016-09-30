@@ -4,11 +4,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
-	"sync"
-	"time"
 )
 
 // AntConfig contains fields to pass to a sia-ant job runner.
@@ -18,12 +15,6 @@ type AntConfig struct {
 	HostAddr     string `json:",omitempty"`
 	SiaDirectory string `json:",omitempty"`
 	Jobs         []string
-}
-
-// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
-type AntfarmConfig struct {
-	AntConfigs  []AntConfig
-	AutoConnect bool
 }
 
 func main() {
@@ -45,75 +36,18 @@ func main() {
 	}
 	f.Close()
 
-	// Clear out the old antfarm data before starting the new antfarm.
-	os.RemoveAll("./antfarm-data")
-
-	// Start each sia-ant process with its assigned jobs from the config file.
-	ants, err := startAnts(antfarmConfig.AntConfigs...)
+	farm, err := createAntfarm(antfarmConfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error starting ants: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error creating antfarm: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Wait for every ant process to exit before exiting antfarm
-	var wg sync.WaitGroup
-	wg.Add(len(ants))
-	go func() {
-		for _, ant := range ants {
-			ant.Wait()
-			wg.Done()
-		}
-	}()
-
-	if antfarmConfig.AutoConnect {
-		if err = connectAnts(ants...); err != nil {
-			fmt.Fprintf(os.Stderr, "error connecting ant: %v\n", err)
-		}
-	}
-
-	// Spawn a thread that checks that all ants in the antfarm are on the same
-	// blockchain every 20 seconds.
-	go func() {
-		// Give 30 seconds for everything to start up.
-		time.Sleep(time.Second * 30)
-
-		// Every 20 seconds, list all consensus groups.
-		for {
-			time.Sleep(time.Second * 20)
-			groups, err := antConsensusGroups(ants...)
-			if err != nil {
-				log.Println("error checking sync status of antfarm: ", err)
-				continue
-			}
-			if len(groups) == 1 {
-				log.Println("Ants are synchronized.")
-			} else {
-				log.Println("Ants split into multiple groups, displaying")
-				for i, group := range groups {
-					if i != 0 {
-						log.Println()
-					}
-					log.Println("Group ", i+1)
-					for _, ant := range group {
-						log.Println(ant.apiaddr)
-					}
-				}
-			}
-		}
-	}()
+	defer farm.Close()
+	go farm.ServeAPI()
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, os.Interrupt)
 
-	go func() {
-		<-sigchan
-		fmt.Println("Caught quit signal, stopping all ants...")
-		for _, cmd := range ants {
-			cmd.Process.Signal(os.Interrupt)
-		}
-	}()
-
 	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antfarmConfig.AntConfigs))
-
-	wg.Wait()
+	<-sigchan
+	fmt.Println("Caught quit signal, quitting...")
 }

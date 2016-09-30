@@ -37,7 +37,7 @@ func TestStartAnts(t *testing.T) {
 
 	// verify each ant has a reachable api
 	for _, ant := range ants {
-		c := api.NewClient(ant.apiaddr, "")
+		c := api.NewClient(ant.APIAddr, "")
 		if err := c.Get("/consensus", nil); err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +148,7 @@ func TestConnectAnts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := api.NewClient(ants[0].apiaddr, "")
+	c := api.NewClient(ants[0].APIAddr, "")
 	var gatewayInfo api.GatewayGET
 	err = c.Get("/gateway", &gatewayInfo)
 	if err != nil {
@@ -158,12 +158,12 @@ func TestConnectAnts(t *testing.T) {
 	for _, ant := range ants[1:] {
 		hasAddr := false
 		for _, peer := range gatewayInfo.Peers {
-			if fmt.Sprintf("%s", peer.NetAddress) == "127.0.0.1"+ant.rpcaddr {
+			if fmt.Sprintf("%s", peer.NetAddress) == "127.0.0.1"+ant.RPCAddr {
 				hasAddr = true
 			}
 		}
 		if !hasAddr {
-			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.rpcaddr)
+			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.RPCAddr)
 		}
 	}
 }
@@ -209,7 +209,7 @@ func TestAntConsensusGroups(t *testing.T) {
 	ants = append(ants, otherAnt)
 
 	// Wait for the other ant to mine a few blocks
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 30)
 
 	groups, err = antConsensusGroups(ants...)
 	if err != nil {
