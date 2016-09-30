@@ -31,4 +31,11 @@ func TestNewSiad(t *testing.T) {
 	if err := c.Get("/consensus", nil); err != nil {
 		t.Error(err)
 	}
+	siad.Process.Kill()
+
+	// verify that NewSiad returns an error given invalid args
+	_, err = NewSiad("siad", datadir, "this_is_an_invalid_addres:1000000", "localhost:0", "localhost:0")
+	if err == nil {
+		t.Fatal("expected newsiad to return an error with invalid args")
+	}
 }
