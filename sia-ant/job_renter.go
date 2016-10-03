@@ -261,11 +261,13 @@ func (r *renterJob) download() error {
 		if err != nil {
 			return fmt.Errorf("error waiting for the file to disappear from the download queue: %v", err)
 		}
-		if !hasFile {
+		if hasFile && info.Received == info.Filesize {
 			success = true
 			break
+		} else if !hasFile {
+			log.Printf("[INFO] [renter] [%v]: file unexpectedly missing from download list\n", r.jr.siaDirectory)
 		} else {
-			log.Printf("[INFO] [renter] [%v]: currently downloading %v, received %v pieces\n", r.jr.siaDirectory, fileToDownload.SiaPath, info.Received)
+			log.Printf("[INFO] [renter] [%v]: currently downloading %v, received %v bytes\n", r.jr.siaDirectory, fileToDownload.SiaPath, info.Received)
 		}
 	}
 	if !success {
