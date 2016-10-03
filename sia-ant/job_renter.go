@@ -127,15 +127,15 @@ func (r *renterJob) permanentDownloader() {
 	// Wait for the first file to be uploaded before starting the download
 	// loop.
 	for {
-		// Download a file.
-		if err := r.download(); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
-		}
-
 		select {
 		case <-r.jr.tg.StopChan():
 			return
 		case <-time.After(downloadFileFrequency):
+		}
+
+		// Download a file.
+		if err := r.download(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
 		}
 	}
 }
@@ -147,16 +147,16 @@ func (r *renterJob) permanentUploader() {
 	// Make the source files directory
 	os.Mkdir(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), 0700)
 	for {
-		// Upload a file.
-		if err := r.upload(); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
-		}
-
 		// Wait a while between upload attempts.
 		select {
 		case <-r.jr.tg.StopChan():
 			return
 		case <-time.After(uploadFileFrequency):
+		}
+
+		// Upload a file.
+		if err := r.upload(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
 		}
 	}
 }
