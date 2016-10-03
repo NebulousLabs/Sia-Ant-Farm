@@ -221,10 +221,8 @@ func (r *renterJob) download() error {
 
 	log.Printf("[INFO] [renter] [%v] downloading %v to %v", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
 
-	downloadPath := fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath)
-	downloadParams := fmt.Sprintf("destination=%v", destPath)
-
-	if err = r.jr.client.Post(downloadPath, downloadParams, nil); err != nil {
+	downloadPath := fmt.Sprintf("/renter/download/%v?destination=%v", fileToDownload.SiaPath, destPath)
+	if err = r.jr.client.Get(downloadPath, nil); err != nil {
 		return fmt.Errorf("failed in call to /renter/download: %v", err)
 	}
 
