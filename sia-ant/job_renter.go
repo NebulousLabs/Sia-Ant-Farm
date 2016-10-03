@@ -34,7 +34,7 @@ const (
 
 	// uploadFileFrequency defines how frequently the renter job uploads files
 	// to the network.
-	uploadFileFrequency = time.Second * 240
+	uploadFileFrequency = time.Second * 60
 
 	// uploadTimeout defines the maximum time allowed for an upload operation to
 	// complete, ie for an upload to reach 100%.
@@ -45,7 +45,7 @@ const (
 
 	// uploadFileSize defines the size of the test files to be uploaded.  Test
 	// files are filled with random data.
-	uploadFileSize = 500e3
+	uploadFileSize = 10e6
 )
 
 var (
