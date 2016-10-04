@@ -67,7 +67,8 @@ func waitForAPI(apiAddr string, siad *exec.Cmd) error {
 
 	exitchan := make(chan error)
 	go func() {
-		exitchan <- siad.Wait()
+		_, err := siad.Process.Wait()
+		exitchan <- err
 	}()
 
 	// Wait for the Sia API to become available.
