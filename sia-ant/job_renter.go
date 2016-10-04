@@ -34,7 +34,7 @@ const (
 
 	// uploadFileFrequency defines how frequently the renter job uploads files
 	// to the network.
-	uploadFileFrequency = time.Second * 240
+	uploadFileFrequency = time.Second * 60
 
 	// uploadTimeout defines the maximum time allowed for an upload operation to
 	// complete, ie for an upload to reach 100%.
@@ -45,7 +45,7 @@ const (
 
 	// uploadFileSize defines the size of the test files to be uploaded.  Test
 	// files are filled with random data.
-	uploadFileSize = 500e3
+	uploadFileSize = 10e6
 )
 
 var (
@@ -127,15 +127,15 @@ func (r *renterJob) permanentDownloader() {
 	// Wait for the first file to be uploaded before starting the download
 	// loop.
 	for {
-		// Download a file.
-		if err := r.download(); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
-		}
-
 		select {
 		case <-r.jr.tg.StopChan():
 			return
 		case <-time.After(downloadFileFrequency):
+		}
+
+		// Download a file.
+		if err := r.download(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
 		}
 	}
 }
@@ -147,16 +147,16 @@ func (r *renterJob) permanentUploader() {
 	// Make the source files directory
 	os.Mkdir(filepath.Join(r.jr.siaDirectory, "renterSourceFiles"), 0700)
 	for {
-		// Upload a file.
-		if err := r.upload(); err != nil {
-			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
-		}
-
 		// Wait a while between upload attempts.
 		select {
 		case <-r.jr.tg.StopChan():
 			return
 		case <-time.After(uploadFileFrequency):
+		}
+
+		// Upload a file.
+		if err := r.upload(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
 		}
 	}
 }
@@ -221,10 +221,8 @@ func (r *renterJob) download() error {
 
 	log.Printf("[INFO] [renter] [%v] downloading %v to %v", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
 
-	downloadPath := fmt.Sprintf("/renter/download/%v", fileToDownload.SiaPath)
-	downloadParams := fmt.Sprintf("destination=%v", destPath)
-
-	if err = r.jr.client.Post(downloadPath, downloadParams, nil); err != nil {
+	downloadPath := fmt.Sprintf("/renter/download/%v?destination=%v", fileToDownload.SiaPath, destPath)
+	if err = r.jr.client.Get(downloadPath, nil); err != nil {
 		return fmt.Errorf("failed in call to /renter/download: %v", err)
 	}
 
@@ -263,11 +261,13 @@ func (r *renterJob) download() error {
 		if err != nil {
 			return fmt.Errorf("error waiting for the file to disappear from the download queue: %v", err)
 		}
-		if !hasFile {
+		if hasFile && info.Received == info.Filesize {
 			success = true
 			break
+		} else if !hasFile {
+			log.Printf("[INFO] [renter] [%v]: file unexpectedly missing from download list\n", r.jr.siaDirectory)
 		} else {
-			log.Printf("[INFO] [renter] [%v]: currently downloading %v, received %v pieces\n", r.jr.siaDirectory, fileToDownload.SiaPath, info.Received)
+			log.Printf("[INFO] [renter] [%v]: currently downloading %v, received %v bytes\n", r.jr.siaDirectory, fileToDownload.SiaPath, info.Received)
 		}
 	}
 	if !success {
