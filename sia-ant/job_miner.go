@@ -27,37 +27,31 @@ func (j *JobRunner) blockMining() {
 		return
 	}
 
+	var walletInfo api.WalletGET
+	err = j.client.Get("/wallet", &walletInfo)
+	if err != nil {
+		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
+		return
+	}
+	lastBalance := walletInfo.ConfirmedSiacoinBalance
+
+	// Every 100 seconds, verify that the balance has increased.
 	for {
-		var walletInfo api.WalletGET
+		select {
+		case <-j.tg.StopChan():
+			return
+		case <-time.After(time.Second * 100):
+		}
+
 		err = j.client.Get("/wallet", &walletInfo)
 		if err != nil {
 			log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
-			return
 		}
-		initialBalance := walletInfo.ConfirmedSiacoinBalance
-		// allow 100 seconds for mined funds to appear in the miner's wallet
-		success := false
-		for start := time.Now(); time.Since(start) < 100*time.Second; {
-			select {
-			case <-j.tg.StopChan():
-				return
-			case <-time.After(time.Second):
-			}
-
-			err = j.client.Get("/wallet", &walletInfo)
-			if err != nil {
-				log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
-			}
-			if walletInfo.ConfirmedSiacoinBalance.Cmp(initialBalance) > 0 {
-				// We have mined a block and now have money, continue
-				success = true
-				break
-			}
-		}
-		if !success {
-			log.Printf("[%v blockMining ERROR]: it took too long to receive new funds in miner job\n", j.siaDirectory)
-		} else {
+		if walletInfo.ConfirmedSiacoinBalance.Cmp(lastBalance) > 0 {
 			log.Printf("[%v SUCCESS] blockMining job succeeded", j.siaDirectory)
+			lastBalance = walletInfo.ConfirmedSiacoinBalance
+		} else {
+			log.Printf("[%v blockMining ERROR]: it took too long to receive new funds in miner job\n", j.siaDirectory)
 		}
 	}
 }

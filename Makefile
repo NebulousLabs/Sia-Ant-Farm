@@ -15,7 +15,7 @@ vet:
 
 # install builds and installs binaries.
 install:
-	go install -race $(pkgs)
+	go install $(pkgs)
 
 test: fmt vet install
 	go test -timeout=600s -race -v $(pkgs)
