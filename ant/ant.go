@@ -38,6 +38,19 @@ func New(config AntConfig) (*Ant, error) {
 		return nil, err
 	}
 
+	for _, job := range config.Jobs {
+		switch job {
+		case "miner":
+			go j.blockMining()
+		case "host":
+			go j.jobHost()
+		case "renter":
+			go j.storageRenter()
+		case "gateway":
+			go j.gatewayConnectability()
+		}
+	}
+
 	return &Ant{
 		APIAddr: config.APIAddr,
 		RPCAddr: config.RPCAddr,
