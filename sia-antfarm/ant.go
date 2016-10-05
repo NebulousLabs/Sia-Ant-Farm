@@ -5,14 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
-	"os/exec"
-	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/modules"
-	"github.com/NebulousLabs/Sia/types"
 )
 
 // Ant defines the fields used by a Sia Ant.
@@ -111,15 +107,23 @@ func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 
 // startAnts starts the ants defined by configs and blocks until every API
 // has loaded.
-func startAnts(configs ...AntConfig) ([]*ant.Ant, error) {
+func startAnts(configs ...ant.AntConfig) ([]*ant.Ant, error) {
 	var ants []*ant.Ant
 	for i, config := range configs {
-		cfg := parseConfig(config)
+		cfg, err := parseConfig(config)
+		if err != nil {
+			return nil, err
+		}
 		fmt.Printf("[INFO] starting ant %v with config %v\n", i, cfg)
 		ant, err := ant.New(cfg)
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if err != nil {
+				ant.Close()
+			}
+		}()
 		ants = append(ants, ant)
 	}
 
@@ -128,25 +132,29 @@ func startAnts(configs ...AntConfig) ([]*ant.Ant, error) {
 
 // parseConfig takes an input `config` and fills it with default values if
 // required.
-func parseConfig(config AntConfig) AntConfig {
+func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
 	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
 	// temporary directory.
 	if config.SiaDirectory == "" {
 		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
 		if err != nil {
-			return nil, err
+			return ant.AntConfig{}, err
 		}
 		config.SiaDirectory = tempdir
+	}
+
+	if config.SiadPath == "" {
+		config.SiadPath = "siad"
 	}
 
 	// Automatically generate 3 free operating system ports for the Ant's api,
 	// rpc, and host addresses
 	addrs, err := getAddrs(3)
 	if err != nil {
-		return nil, err
+		return ant.AntConfig{}, err
 	}
 	if config.APIAddr == "" {
-		config.APIAddr = addrs[0]
+		config.APIAddr = "localhost" + addrs[0]
 	}
 	if config.RPCAddr == "" {
 		config.RPCAddr = addrs[1]
@@ -155,5 +163,5 @@ func parseConfig(config AntConfig) AntConfig {
 		config.HostAddr = addrs[2]
 	}
 
-	return config
+	return config, nil
 }
