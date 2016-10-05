@@ -2,6 +2,8 @@ package ant
 
 import (
 	"os/exec"
+
+	"github.com/NebulousLabs/Sia/types"
 )
 
 // AntConfig represents a configuration object passed to New(), used to
@@ -23,6 +25,11 @@ type Ant struct {
 
 	siad *exec.Cmd
 	jr   *jobRunner
+
+	// A variable to track which blocks + heights the sync detector has seen
+	// for this ant. The map will just keep growing, but it shouldn't take up a
+	// prohibitive amount of space.
+	SeenBlocks map[types.BlockHeight]types.BlockID
 }
 
 // New creates a new Ant using the configuration passed through `config`.
@@ -57,6 +64,8 @@ func New(config AntConfig) (*Ant, error) {
 
 		siad: siad,
 		jr:   j,
+
+		SeenBlocks: make(map[types.BlockHeight]types.BlockID),
 	}, nil
 }
 

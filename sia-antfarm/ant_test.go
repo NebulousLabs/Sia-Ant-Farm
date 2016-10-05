@@ -100,7 +100,6 @@ func TestConnectAnts(t *testing.T) {
 	}
 }
 
-/*
 func TestAntConsensusGroups(t *testing.T) {
 	if testing.Short() {
 		t.SkipNow()
@@ -160,4 +159,3 @@ func TestAntConsensusGroups(t *testing.T) {
 		t.Fatal("expected the miner ant to be in the second consensus group")
 	}
 }
-*/

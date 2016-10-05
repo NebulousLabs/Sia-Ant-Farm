@@ -9,21 +9,8 @@ import (
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/modules"
+	"github.com/NebulousLabs/Sia/types"
 )
-
-// Ant defines the fields used by a Sia Ant.
-/*
-type Ant struct {
-	APIAddr   string
-	RPCAddr   string
-	*exec.Cmd `json:"-"`
-
-	// A variable to track which blocks + heights the sync detector has seen
-	// for this ant. The map will just keep growing, but it shouldn't take up a
-	// prohibitive amount of space.
-	//	seenBlocks map[types.BlockHeight]types.BlockID
-}
-*/
 
 // getAddrs returns n free listening ports by leveraging the
 // behaviour of net.Listen(":0").  Addresses are returned in the format of
@@ -70,25 +57,24 @@ func connectAnts(ants ...*ant.Ant) error {
 //
 // The outer slice is the list of gorups, and the inner slice is a list of ants
 // in each group.
-/*
-func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
-	for _, ant := range ants {
-		c := api.NewClient(ant.APIAddr, "")
+func antConsensusGroups(ants ...*ant.Ant) (groups [][]*ant.Ant, err error) {
+	for _, a := range ants {
+		c := api.NewClient(a.APIAddr, "")
 		var cg api.ConsensusGET
 		if err := c.Get("/consensus", &cg); err != nil {
 			return nil, err
 		}
-		ant.seenBlocks[cg.Height] = cg.CurrentBlock
+		a.SeenBlocks[cg.Height] = cg.CurrentBlock
 
 		// Compare this ant to all of the other groups. If the ant fits in a
 		// group, insert it. If not, add it to the next group.
 		found := false
 		for gi, group := range groups {
 			for i := types.BlockHeight(0); i < 8; i++ {
-				id1, exists1 := ant.seenBlocks[cg.Height-i]
-				id2, exists2 := group[0].seenBlocks[cg.Height-i] // no group should have a length of zero
+				id1, exists1 := a.SeenBlocks[cg.Height-i]
+				id2, exists2 := group[0].SeenBlocks[cg.Height-i] // no group should have a length of zero
 				if exists1 && exists2 && id1 == id2 {
-					groups[gi] = append(groups[gi], ant)
+					groups[gi] = append(groups[gi], a)
 					found = true
 					break
 				}
@@ -98,12 +84,11 @@ func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 			}
 		}
 		if !found {
-			groups = append(groups, []*Ant{ant})
+			groups = append(groups, []*ant.Ant{a})
 		}
 	}
 	return groups, nil
 }
-*/
 
 // startAnts starts the ants defined by configs and blocks until every API
 // has loaded.
