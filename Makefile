@@ -5,7 +5,7 @@ dependencies:
 	go install -race std
 	go get -u github.com/golang/lint/golint
 
-pkgs = ./sia-ant ./sia-antfarm
+pkgs = ./sia-antfarm ./ant
 
 fmt:
 	gofmt -s -l -w $(pkgs)
