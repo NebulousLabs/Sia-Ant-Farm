@@ -23,13 +23,13 @@ type Ant struct {
 	APIAddr string
 	RPCAddr string
 
-	siad *exec.Cmd
+	siad *exec.Cmd `json:"-"`
 	jr   *jobRunner
 
 	// A variable to track which blocks + heights the sync detector has seen
 	// for this ant. The map will just keep growing, but it shouldn't take up a
 	// prohibitive amount of space.
-	SeenBlocks map[types.BlockHeight]types.BlockID
+	SeenBlocks map[types.BlockHeight]types.BlockID `json:"-"`
 }
 
 // New creates a new Ant using the configuration passed through `config`.

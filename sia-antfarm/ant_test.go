@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
@@ -111,6 +113,10 @@ func TestAntConsensusGroups(t *testing.T) {
 		{},
 		{},
 	}
+
+	os.MkdirAll("./antfarm-data", 0700)
+	defer os.RemoveAll("./antfarm-data")
+
 	ants, err := startAnts(configs...)
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +139,11 @@ func TestAntConsensusGroups(t *testing.T) {
 	}
 
 	// Start an ant that is desynced from the rest of the network
-	otherAnt, err := NewAnt(parseConfig(AntConfig{Jobs: []string{"miner"}}))
+	cfg, err := parseConfig(ant.AntConfig{Jobs: []string{"miner"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherAnt, err := ant.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
