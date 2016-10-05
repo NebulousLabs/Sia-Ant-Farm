@@ -6,16 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-)
 
-// AntConfig contains fields to pass to a sia-ant job runner.
-type AntConfig struct {
-	APIAddr      string `json:",omitempty"`
-	RPCAddr      string `json:",omitempty"`
-	HostAddr     string `json:",omitempty"`
-	SiaDirectory string `json:",omitempty"`
-	Jobs         []string
-}
+	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
+)
 
 func main() {
 	configPath := flag.String("config", "config.json", "path to the sia-antfarm configuration file")
