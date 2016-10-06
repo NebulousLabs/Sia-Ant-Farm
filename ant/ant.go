@@ -9,12 +9,13 @@ import (
 // AntConfig represents a configuration object passed to New(), used to
 // configure a newly created Sia Ant.
 type AntConfig struct {
-	APIAddr      string `json:",omitempty"`
-	RPCAddr      string `json:",omitempty"`
-	HostAddr     string `json:",omitempty"`
-	SiaDirectory string `json:",omitempty"`
-	SiadPath     string
-	Jobs         []string
+	APIAddr         string `json:",omitempty"`
+	RPCAddr         string `json:",omitempty"`
+	HostAddr        string `json:",omitempty"`
+	SiaDirectory    string `json:",omitempty"`
+	SiadPath        string
+	Jobs            []string
+	DesiredCurrency string
 }
 
 // An Ant is a Sia Client programmed with network user stories. It executes
@@ -48,7 +49,7 @@ func New(config AntConfig) (*Ant, error) {
 	for _, job := range config.Jobs {
 		switch job {
 		case "miner":
-			go j.blockMining()
+			go j.blockMining(config.DesiredCurrency)
 		case "host":
 			go j.jobHost()
 		case "renter":

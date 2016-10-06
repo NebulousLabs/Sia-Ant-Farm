@@ -28,6 +28,12 @@ func newJobRunner(apiaddr string, authpassword string, siadirectory string) (*jo
 		return nil, err
 	}
 	jr.walletPassword = walletParams.PrimarySeed
+
+	err = j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return jr, nil
 }
 

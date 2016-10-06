@@ -17,24 +17,12 @@ func (j *jobRunner) jobHost() {
 	j.tg.Add()
 	defer j.tg.Done()
 
-	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
-	if err != nil {
-		log.Printf("[%v jobHost ERROR: %v\n", j.siaDirectory, err)
-		return
-	}
-
-	err = j.client.Get("/miner/start", nil)
-	if err != nil {
-		log.Printf("[%v jobHost ERROR: %v\n", j.siaDirectory, err)
-		return
-	}
-
 	// Mine at least 50,000 SC
 	desiredbalance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
 	success := false
 	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Second) {
 		var walletInfo api.WalletGET
-		err = j.client.Get("/wallet", &walletInfo)
+		err := j.client.Get("/wallet", &walletInfo)
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 			return
@@ -58,7 +46,7 @@ func (j *jobRunner) jobHost() {
 	defer os.RemoveAll(hostdir)
 
 	// Add the storage folder.
-	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000", hostdir), nil)
+	err := j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000", hostdir), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
