@@ -144,6 +144,17 @@ func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
 		config.SiadPath = "siad"
 	}
 
+	// DesiredCurrency and `miner` are mutually exclusive.
+	hasMiner := false
+	for _, job := range config.Jobs {
+		if job == "miner" {
+			hasMiner = true
+		}
+	}
+	if hasMiner && config.DesiredCurrency != 0 {
+		return ant.AntConfig{}, errors.New("error parsing config: cannot have desired currency with miner job")
+	}
+
 	// Automatically generate 3 free operating system ports for the Ant's api,
 	// rpc, and host addresses
 	addrs, err := getAddrs(3)

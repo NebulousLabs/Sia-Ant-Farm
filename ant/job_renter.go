@@ -45,7 +45,7 @@ const (
 
 	// uploadFileSize defines the size of the test files to be uploaded.  Test
 	// files are filled with random data.
-	uploadFileSize = 10e6
+	uploadFileSize = 1e9
 )
 
 var (

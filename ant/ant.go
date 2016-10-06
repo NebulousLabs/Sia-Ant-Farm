@@ -35,11 +35,19 @@ type Ant struct {
 
 // New creates a new Ant using the configuration passed through `config`.
 func New(config AntConfig) (*Ant, error) {
+	var err error
 	// Construct the ant's Siad instance
 	siad, err := newSiad(config.SiadPath, config.SiaDirectory, config.APIAddr, config.RPCAddr, config.HostAddr)
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure siad is always stopped if an error is returned.
+	defer func() {
+		if err != nil {
+			stopSiad(config.APIAddr, siad.Process)
+		}
+	}()
 
 	j, err := newJobRunner(config.APIAddr, "", config.SiaDirectory)
 	if err != nil {
@@ -49,7 +57,7 @@ func New(config AntConfig) (*Ant, error) {
 	for _, job := range config.Jobs {
 		switch job {
 		case "miner":
-			go j.blockMining(types.SiacoinPrecision.Mul64(config.DesiredCurrency))
+			go j.blockMining()
 		case "host":
 			go j.jobHost()
 		case "renter":
@@ -57,6 +65,10 @@ func New(config AntConfig) (*Ant, error) {
 		case "gateway":
 			go j.gatewayConnectability()
 		}
+	}
+
+	if config.DesiredCurrency != 0 {
+		go j.balanceMaintainer(types.SiacoinPrecision.Mul64(config.DesiredCurrency))
 	}
 
 	return &Ant{
