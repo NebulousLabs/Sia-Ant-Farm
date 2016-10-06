@@ -2,21 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/julienschmidt/httprouter"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 )
 
 type (
 	// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
 	AntfarmConfig struct {
 		ListenAddress string
-		AntConfigs    []AntConfig
+		AntConfigs    []ant.AntConfig
 		AutoConnect   bool
 
 		// ExternalFarms is a slice of net addresses representing the API addresses
@@ -28,14 +28,13 @@ type (
 	// ants and provides an API server to interact with them.
 	antFarm struct {
 		apiListener net.Listener
-		wg          sync.WaitGroup
 
 		// ants is a slice of Ants in this antfarm.
-		ants []*Ant
+		ants []*ant.Ant
 
 		// externalAnts is a slice of externally connected ants, that is, ants that
 		// are connected to this antfarm but managed by another antfarm.
-		externalAnts []*Ant
+		externalAnts []*ant.Ant
 		router       *httprouter.Router
 	}
 )
@@ -54,13 +53,6 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		return nil, err
 	}
 	farm.ants = ants
-	farm.wg.Add(len(ants))
-	go func() {
-		for _, ant := range ants {
-			ant.Wait()
-			farm.wg.Done()
-		}
-	}()
 	defer func() {
 		if err != nil {
 			farm.Close()
@@ -85,6 +77,7 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		return nil, err
 	}
 
+	// start the sync monitor
 	go farm.permanentSyncMonitor()
 
 	// construct the router and serve the API.
@@ -96,7 +89,7 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 
 // allAnts returns all ants, external and internal, associated with this
 // antFarm.
-func (af *antFarm) allAnts() []*Ant {
+func (af *antFarm) allAnts() []*ant.Ant {
 	return append(af.ants, af.externalAnts...)
 }
 
@@ -109,7 +102,7 @@ func (af *antFarm) connectExternalAntfarm(externalAddress string) error {
 	}
 	defer res.Body.Close()
 
-	var externalAnts []*Ant
+	var externalAnts []*ant.Ant
 	err = json.NewDecoder(res.Body).Decode(&externalAnts)
 	if err != nil {
 		return err
@@ -120,8 +113,6 @@ func (af *antFarm) connectExternalAntfarm(externalAddress string) error {
 
 // ServeAPI serves the antFarm's http API.
 func (af *antFarm) ServeAPI() error {
-	af.wg.Add(1)
-	defer af.wg.Done()
 	http.Serve(af.apiListener, af.router)
 	return nil
 }
@@ -149,8 +140,8 @@ func (af *antFarm) permanentSyncMonitor() {
 					log.Println()
 				}
 				log.Println("Group ", i+1)
-				for _, ant := range group {
-					log.Println(ant.APIAddr)
+				for _, a := range group {
+					log.Println(a.APIAddr)
 				}
 			}
 		}
@@ -172,8 +163,7 @@ func (af *antFarm) Close() error {
 		af.apiListener.Close()
 	}
 	for _, ant := range af.ants {
-		ant.Process.Signal(os.Interrupt)
+		ant.Close()
 	}
-	af.wg.Wait()
 	return nil
 }

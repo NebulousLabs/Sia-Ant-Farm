@@ -8,19 +8,12 @@ import (
 	"os/signal"
 )
 
-// AntConfig contains fields to pass to a sia-ant job runner.
-type AntConfig struct {
-	APIAddr      string `json:",omitempty"`
-	RPCAddr      string `json:",omitempty"`
-	HostAddr     string `json:",omitempty"`
-	SiaDirectory string `json:",omitempty"`
-	Jobs         []string
-}
-
 func main() {
 	configPath := flag.String("config", "config.json", "path to the sia-antfarm configuration file")
-
 	flag.Parse()
+
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, os.Interrupt)
 
 	// Read and decode the sia-antfarm configuration file.
 	var antfarmConfig AntfarmConfig
@@ -43,9 +36,6 @@ func main() {
 	}
 	defer farm.Close()
 	go farm.ServeAPI()
-
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, os.Interrupt)
 
 	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antfarmConfig.AntConfigs))
 	<-sigchan

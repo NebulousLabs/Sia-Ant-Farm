@@ -1,24 +1,24 @@
-package main
+package ant
 
 import (
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/sync"
 )
 
-// A JobRunner is used to start up jobs on the running Sia node.
-type JobRunner struct {
+// A jobRunner is used to start up jobs on the running Sia node.
+type jobRunner struct {
 	client         *api.Client
 	walletPassword string
 	siaDirectory   string
 	tg             sync.ThreadGroup
 }
 
-// NewJobRunner creates a new job runner, using the provided api address,
+// newJobRunner creates a new job runner, using the provided api address,
 // authentication password, and sia directory.  It expects the connected api to
 // be newly initialized, and initializes a new wallet, for usage in the jobs.
 // siadirectory is used in logging to identify the job runner.
-func NewJobRunner(apiaddr string, authpassword string, siadirectory string) (*JobRunner, error) {
-	jr := &JobRunner{
+func newJobRunner(apiaddr string, authpassword string, siadirectory string) (*jobRunner, error) {
+	jr := &jobRunner{
 		client:       api.NewClient(apiaddr, authpassword),
 		siaDirectory: siadirectory,
 	}
@@ -33,6 +33,6 @@ func NewJobRunner(apiaddr string, authpassword string, siadirectory string) (*Jo
 
 // Stop signals all running jobs to stop and blocks until the jobs have
 // finished stopping.
-func (j *JobRunner) Stop() {
+func (j *jobRunner) Stop() {
 	j.tg.Stop()
 }

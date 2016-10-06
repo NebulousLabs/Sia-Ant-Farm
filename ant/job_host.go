@@ -1,4 +1,4 @@
-package main
+package ant
 
 import (
 	"fmt"
@@ -13,13 +13,9 @@ import (
 
 // jobHost unlocks the wallet, mines some currency, and starts a host offering
 // storage to the ant farm.
-func (j *JobRunner) jobHost() {
-	done := make(chan struct{})
-	defer close(done)
-
-	j.tg.OnStop(func() {
-		<-done
-	})
+func (j *jobRunner) jobHost() {
+	j.tg.Add()
+	defer j.tg.Done()
 
 	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
 	if err != nil {

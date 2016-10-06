@@ -1,4 +1,4 @@
-package main
+package ant
 
 import (
 	"log"
@@ -9,12 +9,9 @@ import (
 
 // gatewayConnectability will print an error to the log if the node has zero
 // peers at any time.
-func (j *JobRunner) gatewayConnectability() {
-	done := make(chan struct{})
-	defer close(done)
-	j.tg.OnStop(func() {
-		<-done
-	})
+func (j *jobRunner) gatewayConnectability() {
+	j.tg.Add()
+	defer j.tg.Done()
 
 	// Initially wait a while to give the other ants some time to spin up.
 	select {

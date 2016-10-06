@@ -5,26 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
-	"os/exec"
-	"time"
 
+	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
-
-// Ant defines the fields used by a Sia Ant.
-type Ant struct {
-	APIAddr   string
-	RPCAddr   string
-	*exec.Cmd `json:"-"`
-
-	// A variable to track which blocks + heights the sync detector has seen
-	// for this ant. The map will just keep growing, but it shouldn't take up a
-	// prohibitive amount of space.
-	seenBlocks map[types.BlockHeight]types.BlockID
-}
 
 // getAddrs returns n free listening ports by leveraging the
 // behaviour of net.Listen(":0").  Addresses are returned in the format of
@@ -45,7 +31,7 @@ func getAddrs(n int) ([]string, error) {
 
 // connectAnts connects two or more ants to the first ant in the slice,
 // effectively bootstrapping the antfarm.
-func connectAnts(ants ...*Ant) error {
+func connectAnts(ants ...*ant.Ant) error {
 	if len(ants) < 2 {
 		return errors.New("you must call connectAnts with at least two ants.")
 	}
@@ -71,24 +57,24 @@ func connectAnts(ants ...*Ant) error {
 //
 // The outer slice is the list of gorups, and the inner slice is a list of ants
 // in each group.
-func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
-	for _, ant := range ants {
-		c := api.NewClient(ant.APIAddr, "")
+func antConsensusGroups(ants ...*ant.Ant) (groups [][]*ant.Ant, err error) {
+	for _, a := range ants {
+		c := api.NewClient(a.APIAddr, "")
 		var cg api.ConsensusGET
 		if err := c.Get("/consensus", &cg); err != nil {
 			return nil, err
 		}
-		ant.seenBlocks[cg.Height] = cg.CurrentBlock
+		a.SeenBlocks[cg.Height] = cg.CurrentBlock
 
 		// Compare this ant to all of the other groups. If the ant fits in a
 		// group, insert it. If not, add it to the next group.
 		found := false
 		for gi, group := range groups {
 			for i := types.BlockHeight(0); i < 8; i++ {
-				id1, exists1 := ant.seenBlocks[cg.Height-i]
-				id2, exists2 := group[0].seenBlocks[cg.Height-i] // no group should have a length of zero
+				id1, exists1 := a.SeenBlocks[cg.Height-i]
+				id2, exists2 := group[0].SeenBlocks[cg.Height-i] // no group should have a length of zero
 				if exists1 && exists2 && id1 == id2 {
-					groups[gi] = append(groups[gi], ant)
+					groups[gi] = append(groups[gi], a)
 					found = true
 					break
 				}
@@ -98,7 +84,7 @@ func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 			}
 		}
 		if !found {
-			groups = append(groups, []*Ant{ant})
+			groups = append(groups, []*ant.Ant{a})
 		}
 	}
 	return groups, nil
@@ -106,81 +92,73 @@ func antConsensusGroups(ants ...*Ant) (groups [][]*Ant, err error) {
 
 // startAnts starts the ants defined by configs and blocks until every API
 // has loaded.
-func startAnts(configs ...AntConfig) ([]*Ant, error) {
-	var ants []*Ant
+func startAnts(configs ...ant.AntConfig) ([]*ant.Ant, error) {
+	var ants []*ant.Ant
+	var err error
+
+	// Ensure that, if an error occurs, all the ants that have been started are
+	// closed before returning.
+	defer func() {
+		if err != nil {
+			for _, ant := range ants {
+				ant.Close()
+			}
+		}
+	}()
+
 	for i, config := range configs {
-		fmt.Printf("starting ant %v with jobs %v\n", i, config.Jobs)
-		ant, err := NewAnt(config)
+		cfg, err := parseConfig(config)
 		if err != nil {
 			return nil, err
 		}
-		ants = append(ants, ant)
-	}
-
-	// Wait for every ant API to become reachable.
-	for _, ant := range ants {
-		c := api.NewClient(ant.APIAddr, "")
-		for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Millisecond * 100) {
-			if err := c.Get("/consensus", nil); err == nil {
-				break
-			}
+		fmt.Printf("[INFO] starting ant %v with config %v\n", i, cfg)
+		ant, err := ant.New(cfg)
+		if err != nil {
+			return nil, err
 		}
+		defer func() {
+			if err != nil {
+				ant.Close()
+			}
+		}()
+		ants = append(ants, ant)
 	}
 
 	return ants, nil
 }
 
-// NewAnt spawns a new sia-ant process using os/exec.  The jobs defined by
-// `jobs` are passed as flags to sia-ant.  If APIAddr, RPCAddr, or HostAddr are
-// defined in `config`, they will be passed to the Ant.  Otherwise, the Ant
-// will be passed 3 unused addresses.
-func NewAnt(config AntConfig) (*Ant, error) {
-	var args []string
-	for _, job := range config.Jobs {
-		args = append(args, "-"+job)
-	}
-
+// parseConfig takes an input `config` and fills it with default values if
+// required.
+func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
 	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
 	// temporary directory.
-	siadir := config.SiaDirectory
-	if siadir == "" {
+	if config.SiaDirectory == "" {
 		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
 		if err != nil {
-			return nil, err
+			return ant.AntConfig{}, err
 		}
-		siadir = tempdir
+		config.SiaDirectory = tempdir
+	}
+
+	if config.SiadPath == "" {
+		config.SiadPath = "siad"
 	}
 
 	// Automatically generate 3 free operating system ports for the Ant's api,
 	// rpc, and host addresses
 	addrs, err := getAddrs(3)
 	if err != nil {
-		return nil, err
+		return ant.AntConfig{}, err
 	}
-	APIAddr := "localhost" + addrs[0]
-	RPCAddr := addrs[1]
-	hostaddr := addrs[2]
-
-	// Override the automatically generated addresses with the ones in AntConfig,
-	// if they exist.
-	if config.APIAddr != "" {
-		APIAddr = config.APIAddr
+	if config.APIAddr == "" {
+		config.APIAddr = "localhost" + addrs[0]
 	}
-	if config.RPCAddr != "" {
-		RPCAddr = config.RPCAddr
+	if config.RPCAddr == "" {
+		config.RPCAddr = addrs[1]
 	}
-	if config.HostAddr != "" {
-		hostaddr = config.HostAddr
+	if config.HostAddr == "" {
+		config.HostAddr = addrs[2]
 	}
 
-	fmt.Printf("[%v jobs %v] APIAddr: %v RPCAddr: %v HostAddr: %v\n", siadir, config.Jobs, APIAddr, RPCAddr, hostaddr)
-
-	args = append(args, "-api-addr", APIAddr, "-rpc-addr", RPCAddr, "-host-addr", hostaddr, "-sia-directory", siadir)
-	cmd := exec.Command("sia-ant", args...)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	return &Ant{APIAddr, RPCAddr, cmd, make(map[types.BlockHeight]types.BlockID)}, nil
+	return config, nil
 }

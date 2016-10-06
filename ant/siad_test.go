@@ -1,4 +1,4 @@
-package main
+package ant
 
 import (
 	"io/ioutil"
@@ -20,7 +20,7 @@ func TestNewSiad(t *testing.T) {
 	}
 	defer os.RemoveAll(datadir)
 
-	siad, err := NewSiad("siad", datadir, "localhost:9990", "localhost:0", "localhost:0")
+	siad, err := newSiad("siad", datadir, "localhost:9990", "localhost:0", "localhost:0")
 	if err != nil {
 		t.Error(err)
 		return
@@ -34,7 +34,7 @@ func TestNewSiad(t *testing.T) {
 	siad.Process.Kill()
 
 	// verify that NewSiad returns an error given invalid args
-	_, err = NewSiad("siad", datadir, "this_is_an_invalid_addres:1000000", "localhost:0", "localhost:0")
+	_, err = newSiad("siad", datadir, "this_is_an_invalid_addres:1000000", "localhost:0", "localhost:0")
 	if err == nil {
 		t.Fatal("expected newsiad to return an error with invalid args")
 	}

@@ -1,4 +1,4 @@
-package main
+package ant
 
 import (
 	"crypto/rand"
@@ -70,7 +70,7 @@ type renterFile struct {
 type renterJob struct {
 	files []renterFile
 
-	jr *JobRunner
+	jr *jobRunner
 	mu sync.Mutex
 }
 
@@ -379,7 +379,7 @@ func (r *renterJob) upload() error {
 // storageRenter unlocks the wallet, mines some currency, sets an allowance
 // using that currency, and uploads some files.  It will periodically try to
 // download or delete those files, printing any errors that occur.
-func (j *JobRunner) storageRenter() {
+func (j *jobRunner) storageRenter() {
 	j.tg.Add()
 	defer j.tg.Done()
 

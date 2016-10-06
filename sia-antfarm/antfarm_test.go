@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
 )
 
@@ -18,7 +19,7 @@ func TestNewAntfarm(t *testing.T) {
 
 	config := AntfarmConfig{
 		ListenAddress: "localhost:31337",
-		AntConfigs: []AntConfig{
+		AntConfigs: []ant.AntConfig{
 			{
 				RPCAddr: "localhost:3337",
 				Jobs: []string{
@@ -42,7 +43,7 @@ func TestNewAntfarm(t *testing.T) {
 	}
 	defer res.Body.Close()
 
-	var ants []*Ant
+	var ants []*ant.Ant
 	err = json.NewDecoder(res.Body).Decode(&ants)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +64,7 @@ func TestConnectExternalAntfarm(t *testing.T) {
 
 	config1 := AntfarmConfig{
 		ListenAddress: "127.0.0.1:31337",
-		AntConfigs: []AntConfig{
+		AntConfigs: []ant.AntConfig{
 			{
 				RPCAddr: "127.0.0.1:3337",
 				Jobs: []string{
@@ -75,7 +76,7 @@ func TestConnectExternalAntfarm(t *testing.T) {
 
 	config2 := AntfarmConfig{
 		ListenAddress: "127.0.0.1:31338",
-		AntConfigs: []AntConfig{
+		AntConfigs: []ant.AntConfig{
 			{
 				RPCAddr: "127.0.0.1:3338",
 				Jobs: []string{

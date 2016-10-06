@@ -1,4 +1,4 @@
-package main
+package ant
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 // blockMining unlocks the wallet and mines some currency.  If more than 100
 // seconds passes before the wallet has received some amount of currency, this
 // job will print an error.
-func (j *JobRunner) blockMining() {
+func (j *jobRunner) blockMining() {
 	j.tg.Add()
 	defer j.tg.Done()
 
