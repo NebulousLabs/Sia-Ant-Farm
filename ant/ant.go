@@ -23,7 +23,7 @@ type Ant struct {
 	APIAddr string
 	RPCAddr string
 
-	siad *exec.Cmd `json:"-"`
+	siad *exec.Cmd
 	jr   *jobRunner
 
 	// A variable to track which blocks + heights the sync detector has seen
