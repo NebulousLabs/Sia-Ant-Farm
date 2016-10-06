@@ -15,7 +15,7 @@ type AntConfig struct {
 	SiaDirectory    string `json:",omitempty"`
 	SiadPath        string
 	Jobs            []string
-	DesiredCurrency string
+	DesiredCurrency uint64
 }
 
 // An Ant is a Sia Client programmed with network user stories. It executes
@@ -49,7 +49,7 @@ func New(config AntConfig) (*Ant, error) {
 	for _, job := range config.Jobs {
 		switch job {
 		case "miner":
-			go j.blockMining(config.DesiredCurrency)
+			go j.blockMining(types.SiacoinPrecision.Mul64(config.DesiredCurrency))
 		case "host":
 			go j.jobHost()
 		case "renter":
