@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"github.com/julienschmidt/httprouter"
+	"log"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 )
@@ -75,6 +77,9 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		return nil, err
 	}
 
+	// start the sync monitor
+	go farm.permanentSyncMonitor()
+
 	// construct the router and serve the API.
 	farm.router = httprouter.New()
 	farm.router.GET("/ants", farm.getAnts)
@@ -114,7 +119,6 @@ func (af *antFarm) ServeAPI() error {
 
 // permanentSyncMonitor checks that all ants in the antFarm are on the same
 // blockchain.
-/*
 func (af *antFarm) permanentSyncMonitor() {
 	// Give 30 seconds for everything to start up.
 	time.Sleep(time.Second * 30)
@@ -136,14 +140,13 @@ func (af *antFarm) permanentSyncMonitor() {
 					log.Println()
 				}
 				log.Println("Group ", i+1)
-				for _, ant := range group {
-					log.Println(ant.APIAddr)
+				for _, a := range group {
+					log.Println(a.APIAddr)
 				}
 			}
 		}
 	}
 }
-*/
 
 // getAnts is a http handler that returns the ants currently running on the
 // antfarm.
