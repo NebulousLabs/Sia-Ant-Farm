@@ -8,9 +8,8 @@ import (
 	"github.com/NebulousLabs/Sia/types"
 )
 
-// blockMining unlocks the wallet and mines some currency.  If more than 100
-// seconds passes before the wallet has received some amount of currency, this
-// job will print an error.
+// blockMining mines blocks until desiredBalance is reached. If desiredBalance
+// is zero, blockMining will start the miner and return, mining indefinitely.
 func (j *jobRunner) blockMining(desiredBalance types.Currency) {
 	j.tg.Add()
 	defer j.tg.Done()
@@ -22,20 +21,21 @@ func (j *jobRunner) blockMining(desiredBalance types.Currency) {
 		return
 	}
 
-	// Every 100 seconds, verify that the balance has increased.
-	// if the balance is above desiredBalance, throttle the miner.
-	// if desiredBalance is zero, the miner runs forever.
+	// If desiredBalance is zero, just return, leaving the miner running.
 	runForever := desiredBalance.Cmp(types.ZeroCurrency) == 0
+	if runForever {
+		return
+	}
 
+	// Every 20 seconds, check if the balance has exceeded the desiredBalance. If
+	// it has and the miner is running, the miner is throttled. If the desired
+	// balance has not been reached and the miner is not running, the miner is
+	// started.
 	for {
 		select {
 		case <-j.tg.StopChan():
 			return
-		case <-time.After(time.Second * 100):
-		}
-
-		if runForever {
-			continue
+		case <-time.After(time.Second * 20):
 		}
 
 		var walletInfo api.WalletGET
