@@ -2,14 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/julienschmidt/httprouter"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
+	"github.com/NebulousLabs/Sia/api"
 )
 
 type (
@@ -151,6 +153,16 @@ func (af *antFarm) permanentSyncMonitor() {
 // getAnts is a http handler that returns the ants currently running on the
 // antfarm.
 func (af *antFarm) getAnts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// update the ants RPC addresses
+	for _, ant := range af.ants {
+		var gatewayInfo api.GatewayGET
+		c := api.NewClient(ant.APIAddr, "")
+		if err := c.Get("/gateway", &gatewayInfo); err != nil {
+			log.Println("error getting ant gateway address: ", err)
+			continue
+		}
+		ant.RPCAddr = string(gatewayInfo.NetAddress)
+	}
 	err := json.NewEncoder(w).Encode(af.ants)
 	if err != nil {
 		http.Error(w, "error encoding ants", 500)
