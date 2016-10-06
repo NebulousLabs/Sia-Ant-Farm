@@ -94,6 +94,18 @@ func antConsensusGroups(ants ...*ant.Ant) (groups [][]*ant.Ant, err error) {
 // has loaded.
 func startAnts(configs ...ant.AntConfig) ([]*ant.Ant, error) {
 	var ants []*ant.Ant
+	var err error
+
+	// Ensure that, if an error occurs, all the ants that have been started are
+	// closed before returning.
+	defer func() {
+		if err != nil {
+			for _, ant := range ants {
+				ant.Close()
+			}
+		}
+	}()
+
 	for i, config := range configs {
 		cfg, err := parseConfig(config)
 		if err != nil {
