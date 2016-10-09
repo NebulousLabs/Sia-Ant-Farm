@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
@@ -21,7 +22,15 @@ import (
 // pointer to siad's os.Cmd object is returned.  The data directory `datadir`
 // is passed as siad's `--sia-directory`.
 func newSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
+	// create a logfile for Sia's stderr and stdout.
+	logfile, err := os.Create(filepath.Join(datadir, "sia-output.log"))
+	if err != nil {
+		return nil, err
+	}
 	cmd := exec.Command(siadPath, "--no-bootstrap", "--sia-directory="+datadir, "--api-addr="+apiAddr, "--rpc-addr="+rpcAddr, "--host-addr="+hostAddr)
+	cmd.Stderr = logfile
+	cmd.Stdout = logfile
+
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
