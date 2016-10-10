@@ -36,6 +36,7 @@ func main() {
 	}
 	defer farm.Close()
 	go farm.ServeAPI()
+	go farm.permanentSyncMonitor()
 
 	fmt.Printf("Finished.  Running sia-antfarm with %v ants.\n", len(antfarmConfig.AntConfigs))
 	<-sigchan

@@ -77,9 +77,6 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 		return nil, err
 	}
 
-	// start the sync monitor
-	go farm.permanentSyncMonitor()
-
 	// construct the router and serve the API.
 	farm.router = httprouter.New()
 	farm.router.GET("/ants", farm.getAnts)
