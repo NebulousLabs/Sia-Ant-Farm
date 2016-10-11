@@ -45,7 +45,7 @@ const (
 
 	// uploadFileSize defines the size of the test files to be uploaded.  Test
 	// files are filled with random data.
-	uploadFileSize = 10e6
+	uploadFileSize = 1e9
 )
 
 var (
@@ -383,18 +383,6 @@ func (j *jobRunner) storageRenter() {
 	j.tg.Add()
 	defer j.tg.Done()
 
-	// Unlock the wallet and begin mining to earn enough coins for uploading.
-	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
-	if err != nil {
-		log.Printf("[ERROR] [renter] [%v] Trouble when unlocking wallet: %v\n", j.siaDirectory, err)
-		return
-	}
-	err = j.client.Get("/miner/start", nil)
-	if err != nil {
-		log.Printf("[ERROR] [renter] [%v] Trouble when starting the miner: %v\n", j.siaDirectory, err)
-		return
-	}
-
 	// Block until a minimum threshold of coins have been mined.
 	start := time.Now()
 	var walletInfo api.WalletGET
@@ -413,7 +401,7 @@ func (j *jobRunner) storageRenter() {
 		}
 
 		// Update the wallet balance.
-		err = j.client.Get("/wallet", &walletInfo)
+		err := j.client.Get("/wallet", &walletInfo)
 		if err != nil {
 			log.Printf("[ERROR] [renter] [%v] Trouble when calling /wallet: %v\n", j.siaDirectory, err)
 		}

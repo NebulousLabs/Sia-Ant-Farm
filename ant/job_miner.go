@@ -1,27 +1,20 @@
 package ant
 
 import (
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
 )
 
-// blockMining unlocks the wallet and mines some currency.  If more than 100
+// blockMining indefinitely mines blocks.  If more than 100
 // seconds passes before the wallet has received some amount of currency, this
 // job will print an error.
 func (j *jobRunner) blockMining() {
 	j.tg.Add()
 	defer j.tg.Done()
 
-	err := j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", j.walletPassword, "english"), nil)
-	if err != nil {
-		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
-		return
-	}
-
-	err = j.client.Get("/miner/start", nil)
+	err := j.client.Get("/miner/start", nil)
 	if err != nil {
 		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		return

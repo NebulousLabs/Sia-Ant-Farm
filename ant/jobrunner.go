@@ -1,6 +1,8 @@
 package ant
 
 import (
+	"fmt"
+
 	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/sync"
 )
@@ -28,6 +30,12 @@ func newJobRunner(apiaddr string, authpassword string, siadirectory string) (*jo
 		return nil, err
 	}
 	jr.walletPassword = walletParams.PrimarySeed
+
+	err = jr.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", jr.walletPassword, "english"), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return jr, nil
 }
 

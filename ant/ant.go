@@ -9,12 +9,13 @@ import (
 // AntConfig represents a configuration object passed to New(), used to
 // configure a newly created Sia Ant.
 type AntConfig struct {
-	APIAddr      string `json:",omitempty"`
-	RPCAddr      string `json:",omitempty"`
-	HostAddr     string `json:",omitempty"`
-	SiaDirectory string `json:",omitempty"`
-	SiadPath     string
-	Jobs         []string
+	APIAddr         string `json:",omitempty"`
+	RPCAddr         string `json:",omitempty"`
+	HostAddr        string `json:",omitempty"`
+	SiaDirectory    string `json:",omitempty"`
+	SiadPath        string
+	Jobs            []string
+	DesiredCurrency uint64
 }
 
 // An Ant is a Sia Client programmed with network user stories. It executes
@@ -34,11 +35,19 @@ type Ant struct {
 
 // New creates a new Ant using the configuration passed through `config`.
 func New(config AntConfig) (*Ant, error) {
+	var err error
 	// Construct the ant's Siad instance
 	siad, err := newSiad(config.SiadPath, config.SiaDirectory, config.APIAddr, config.RPCAddr, config.HostAddr)
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure siad is always stopped if an error is returned.
+	defer func() {
+		if err != nil {
+			stopSiad(config.APIAddr, siad.Process)
+		}
+	}()
 
 	j, err := newJobRunner(config.APIAddr, "", config.SiaDirectory)
 	if err != nil {
@@ -56,6 +65,10 @@ func New(config AntConfig) (*Ant, error) {
 		case "gateway":
 			go j.gatewayConnectability()
 		}
+	}
+
+	if config.DesiredCurrency != 0 {
+		go j.balanceMaintainer(types.SiacoinPrecision.Mul64(config.DesiredCurrency))
 	}
 
 	return &Ant{
