@@ -10,22 +10,26 @@
 		{
 			"jobs": [
 				"host"
-			]
+			],
+			"desiredcurrency": 100000
 		},
 		{
 			"jobs": [
 				"host"
-			]
+			],
+			"desiredcurrency": 100000
 		},
 		{
 			"jobs": [
 				"host"
-			]
+			],
+			"desiredcurrency": 100000
 		},
 		{
 			"jobs": [
 				"renter"
-			]
+			],
+			"desiredcurrency": 100000
 		}
 	],
 	"autoconnect": true
