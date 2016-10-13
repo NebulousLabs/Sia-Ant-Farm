@@ -1,4 +1,5 @@
 # sia-antfarm
+[![Build Status](https://travis-ci.org/NebulousLabs/Sia-Ant-Farm.svg?branch=travis)](https://travis-ci.org/NebulousLabs/Sia)
 
 sia-antfarm is a collection of utilities for performing complex, end-to-end
 tests of the [Sia](https://github.com/NebulousLabs/Sia) platform.  These test

@@ -1,0 +1,21 @@
+language: go
+
+branches:
+  only:
+    - master
+
+notifications:
+  email: false
+
+os:
+  - linux
+
+go:
+  - 1.6
+
+install:
+  make dependencies
+
+script:
+  make test
+
