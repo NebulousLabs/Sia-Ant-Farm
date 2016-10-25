@@ -120,18 +120,19 @@ func (af *antFarm) permanentSyncMonitor() {
 	// Give 30 seconds for everything to start up.
 	time.Sleep(time.Second * 30)
 
-	// Every 20 seconds, list all consensus groups.
+	// Every 20 seconds, list all consensus groups and display the block height.
 	for {
 		time.Sleep(time.Second * 20)
+
 		groups, err := antConsensusGroups(af.allAnts()...)
 		if err != nil {
 			log.Println("error checking sync status of antfarm: ", err)
 			continue
 		}
 		if len(groups) == 1 {
-			log.Println("Ants are synchronized.")
+			log.Println("Ants are synchronized. Block Height: ", af.ants[0].BlockHeight())
 		} else {
-			log.Println("Ants split into multiple groups, displaying")
+			log.Println("Ants split into multiple groups.")
 			for i, group := range groups {
 				if i != 0 {
 					log.Println()

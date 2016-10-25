@@ -89,3 +89,14 @@ func (a *Ant) Close() error {
 	stopSiad(a.APIAddr, a.siad.Process)
 	return nil
 }
+
+// BlockHeight returns the highest block height seen by the ant.
+func (a *Ant) BlockHeight() types.BlockHeight {
+	height := types.BlockHeight(0)
+	for h := range a.SeenBlocks {
+		if h > height {
+			height = h
+		}
+	}
+	return height
+}
