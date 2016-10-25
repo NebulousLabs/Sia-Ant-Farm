@@ -49,7 +49,7 @@ func checkContracts(client *api.Client) error {
 		if contract.WindowEndHeight < csg.Height && !contract.ContractSucceeded {
 			if _, ok := expiredContracts[contract.ID]; !ok {
 				expiredContracts[contract.ID] = contract
-				return fmt.Errorf("blockheight has surpassed contract end height but did not succeed: %v\n", contract)
+				return fmt.Errorf("blockheight has surpassed contract end height but contract did not succeed: %v\n", contract)
 			}
 		}
 	}
