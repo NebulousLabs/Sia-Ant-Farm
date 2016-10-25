@@ -8,14 +8,63 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
+
+// keep track of failed contracts to suppress error logging from repeated
+// contract failures
+var (
+	rejectedContracts map[types.FileContractID]modules.HostContract
+	failedContracts   map[types.FileContractID]modules.HostContract
+	expiredContracts  map[types.FileContractID]modules.HostContract
+)
+
+// checkContracts verifies that the API at client has no host contract
+// obligation failures, using the experimental /x/ Contracts endpoint. Returns
+// nil if there are no contract errors, otherwise returns an error describing
+// the failure.
+func checkContracts(client *api.Client) error {
+	var hostContracts api.HostXcontractsGET
+	if err := client.Get("/host/xcontracts", &hostContracts); err != nil {
+		return err
+	}
+	var csg api.ConsensusGET
+	if err := client.Get("/consensus", &csg); err != nil {
+		return err
+	}
+	for _, contract := range hostContracts.Contracts {
+		if contract.ContractFailed {
+			if _, ok := failedContracts[contract.ID]; !ok {
+				failedContracts[contract.ID] = contract
+				return fmt.Errorf("host has failed contract: %v\n", contract)
+			}
+		}
+		if contract.ContractRejected {
+			if _, ok := rejectedContracts[contract.ID]; !ok {
+				rejectedContracts[contract.ID] = contract
+				return fmt.Errorf("host has rejected contract: %v\n", contract)
+			}
+		}
+		if contract.WindowEndHeight < csg.Height && !contract.ContractSucceeded {
+			if _, ok := expiredContracts[contract.ID]; !ok {
+				expiredContracts[contract.ID] = contract
+				return fmt.Errorf("blockheight has surpassed contract end height but did not succeed: %v\n", contract)
+			}
+		}
+	}
+	return nil
+}
 
 // jobHost unlocks the wallet, mines some currency, and starts a host offering
 // storage to the ant farm.
 func (j *jobRunner) jobHost() {
 	j.tg.Add()
 	defer j.tg.Done()
+
+	rejectedContracts = make(map[types.FileContractID]modules.HostContract)
+	expiredContracts = make(map[types.FileContractID]modules.HostContract)
+	failedContracts = make(map[types.FileContractID]modules.HostContract)
 
 	// Mine at least 50,000 SC
 	desiredbalance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
@@ -79,7 +128,8 @@ func (j *jobRunner) jobHost() {
 	}
 
 	// Poll the API for host settings, logging them out with `INFO` tags.  If
-	// `StorageRevenue` decreases, log an ERROR.
+	// `StorageRevenue` decreases, log an ERROR. Check the contract status once
+	// per iteration.
 	maxRevenue := types.NewCurrency64(0)
 	for {
 		select {
@@ -91,6 +141,11 @@ func (j *jobRunner) jobHost() {
 		var hostInfo api.HostGET
 		err = j.client.Get("/host", &hostInfo)
 		if err != nil {
+			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
+		}
+
+		// Print an error if there's a problem with the Host's contracts
+		if err = checkContracts(j.client); err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		}
 
