@@ -16,8 +16,9 @@ You must have `siad` installed.  If it's outside of your path, provide its locat
 
 # Running a sia-antfarm
 
-This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` starts up a `siad` instance and runs jobs using that instance.  Jobs can be toggled on using flags, see `sia-ant -h` for a list of jobs.  `sia-antfarm` creates a number of `sia-ants`, running a configurable array of jobs.  `sia-antfarm` takes one flag, `-config`, which is a path to a JSON file defining the number of ants and the job(s) for each ant to perform.  For example,
+This repository contains one utility, `sia-antfarm`. `sia-antfarm` starts up a number of `siad` instances, using jobs and configuration options parsed from the input `config.json`. `sia-antfarm` takes on flag, `-config`, which is a path to a JSON file defining the ants and their jobs. See `nebulous-configs/` for some examples that we use to test Sia.
 
+An example `config.json`:
 
 `config.json:`
 ```json
@@ -56,11 +57,35 @@ This repository contains two utilities, `sia-ant` and `sia-antfarm`.  `sia-ant` 
 }
 ```
 
-This `config.json` creates 5 `sia-ants`, with four running the `gateway` job
+This `config.json` creates 5 ants, with four running the `gateway` job
 and one running a `gateway` and a `mining` job.  If `HostAddr`, `APIAddr`, or
 `RPCAddr` are not specified, they will be set to a random port.  If
 `autoconnect` is set to `false`, the ants will not automatically be made peers
 of eachother.
+
+## Available configuration options:
+
+```
+{
+	'ListenAddress': the listen address that the `sia-antfarm` API listens on
+	'AntConfigs': an array of `AntConfig` objects, defining the ants to run on this antfarm
+	'AutoConnect': a boolean which automatically bootstraps the antfarm if provided
+	'ExternalFarms': an array of strings, where each string is the api address of an external antfarm to connect to.
+}
+```
+
+`AntConfig`s have the following options:
+```
+{
+	'APIAddr': the api address for the ant to listen on, by default an unused localhost: bind address will be used.
+	'RPCAddr': the RPC address for the ant to listen on, by default an unused bind address will be used.
+	'HostAddr': the Host address for the ant to listen on, by default an unused bind address will be used.
+	'SiaDirectory': the data directory to use for this ant, by default a unique directory in `./antfarm-data` will be generated and used.
+	'SiadPath': the path to the `siad` binary, by default the `siad` in your path will be used.
+	'Jobs': an array of jobs for this ant to run. available jobs include: ['miner', 'host', 'renter', 'gateway']
+	'DesiredCurrency': a minimum (integer) amount of SiaCoin that this Ant will attempt to maintain by mining currency. This is mutually exclusive with the `miner` job.
+}
+```
 
 
 # License
