@@ -1,9 +1,12 @@
 package ant
 
 import (
+	"log"
+	"net"
 	"os/exec"
 
 	"github.com/NebulousLabs/Sia/types"
+	"github.com/NebulousLabs/go-upnp"
 )
 
 // AntConfig represents a configuration object passed to New(), used to
@@ -33,9 +36,46 @@ type Ant struct {
 	SeenBlocks map[types.BlockHeight]types.BlockID `json:"-"`
 }
 
+// clearPorts discovers the UPNP enabled router and clears the ports used by an
+// ant before the ant is started.
+func clearPorts(config AntConfig) error {
+	rpcaddr, err := net.ResolveTCPAddr("tcp", config.RPCAddr)
+	if err != nil {
+		return err
+	}
+
+	hostaddr, err := net.ResolveTCPAddr("tcp", config.HostAddr)
+	if err != nil {
+		return err
+	}
+
+	upnprouter, err := upnp.Discover()
+	if err != nil {
+		return err
+	}
+
+	err = upnprouter.Clear(uint16(rpcaddr.Port))
+	if err != nil {
+		return err
+	}
+
+	err = upnprouter.Clear(uint16(hostaddr.Port))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // New creates a new Ant using the configuration passed through `config`.
 func New(config AntConfig) (*Ant, error) {
 	var err error
+	// unforward the ports required for this ant
+	err = clearPorts(config)
+	if err != nil {
+		log.Printf("error clearing upnp ports for ant: %v\n", err)
+	}
+
 	// Construct the ant's Siad instance
 	siad, err := newSiad(config.SiadPath, config.SiaDirectory, config.APIAddr, config.RPCAddr, config.HostAddr)
 	if err != nil {
