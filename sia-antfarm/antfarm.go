@@ -52,6 +52,12 @@ func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = startJobs(ants...)
+	if err != nil {
+		return nil, err
+	}
+
 	farm.ants = ants
 	defer func() {
 		if err != nil {

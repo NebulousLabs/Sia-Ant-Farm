@@ -127,6 +127,42 @@ func startAnts(configs ...ant.AntConfig) ([]*ant.Ant, error) {
 	return ants, nil
 }
 
+// startJobs starts all the jobs for each ant.
+func startJobs(ants ...*ant.Ant) error {
+	// first, pull out any constants needed for the jobs
+	var spenderAddress *types.UnlockHash
+	for _, ant := range ants {
+		for _, job := range ant.Config.Jobs {
+			if job == "bigspender" {
+				addr, err := ant.WalletAddress()
+				if err != nil {
+					return err
+				}
+				spenderAddress = addr
+			}
+		}
+	}
+	// start jobs requiring those constants
+	for _, ant := range ants {
+		for _, job := range ant.Config.Jobs {
+			if job == "bigspender" {
+				ant.StartJob(job)
+			}
+			if job == "littlesupplier" && spenderAddress != nil {
+				err := ant.StartJob(job, *spenderAddress)
+				if err != nil {
+					return err
+				}
+				err = ant.StartJob("miner")
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // parseConfig takes an input `config` and fills it with default values if
 // required.
 func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
