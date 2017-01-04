@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
@@ -22,6 +23,9 @@ import (
 // pointer to siad's os.Cmd object is returned.  The data directory `datadir`
 // is passed as siad's `--sia-directory`.
 func newSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, hostAddr string) (*exec.Cmd, error) {
+	if err := checkSiadConstants(siadPath); err != nil {
+		return nil, err
+	}
 	// create a logfile for Sia's stderr and stdout.
 	logfile, err := os.Create(filepath.Join(datadir, "sia-output.log"))
 	if err != nil {
@@ -40,6 +44,23 @@ func newSiad(siadPath string, datadir string, apiAddr string, rpcAddr string, ho
 	}
 
 	return cmd, nil
+}
+
+// checkSiadConstants runs `siad version` and verifies that the supplied siad
+// is running the correct, dev, constants. Returns an error if the correct
+// constants are not running, otherwise returns nil.
+func checkSiadConstants(siadPath string) error {
+	cmd := exec.Command(siadPath, "version")
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(string(output), "-dev") {
+		return errors.New("supplied siad is not running required dev constants")
+	}
+
+	return nil
 }
 
 // stopSiad tries to stop the siad running at `apiAddr`, issuing a kill to its
