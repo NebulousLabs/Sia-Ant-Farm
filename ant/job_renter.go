@@ -38,7 +38,11 @@ const (
 
 	// deleteFileFrequency defines how frequently the renter job deletes files
 	// from the network.
-	deleteFileFrequency = time.Minute * 10
+	deleteFileFrequency = time.Minute * 2
+
+	// deleteFileThreshold defines the minimum number of files uploaded before
+	// deletion occurs.
+	deleteFileThreshold = 30
 
 	// uploadTimeout defines the maximum time allowed for an upload operation to
 	// complete, ie for an upload to reach 100%.
@@ -187,7 +191,7 @@ func (r *renterJob) deleteRandom() error {
 	defer r.mu.Unlock()
 
 	// no-op with fewer than 10 files
-	if len(r.files) < 10 {
+	if len(r.files) < deleteFileThreshold {
 		return nil
 	}
 
