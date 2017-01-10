@@ -36,6 +36,14 @@ const (
 	// to the network.
 	uploadFileFrequency = time.Second * 60
 
+	// deleteFileFrequency defines how frequently the renter job deletes files
+	// from the network.
+	deleteFileFrequency = time.Minute * 2
+
+	// deleteFileThreshold defines the minimum number of files uploaded before
+	// deletion occurs.
+	deleteFileThreshold = 30
+
 	// uploadTimeout defines the maximum time allowed for an upload operation to
 	// complete, ie for an upload to reach 100%.
 	maxUploadTime = time.Minute * 10
@@ -161,6 +169,48 @@ func (r *renterJob) permanentUploader() {
 	}
 }
 
+// permanentDeleter deletes one random file from the renter every 100 seconds
+// once 10 or more files have been uploaded.
+func (r *renterJob) permanentDeleter() {
+	for {
+		select {
+		case <-r.jr.tg.StopChan():
+			return
+		case <-time.After(deleteFileFrequency):
+		}
+
+		if err := r.deleteRandom(); err != nil {
+			log.Printf("[ERROR] [renter] [%v]: %v\n", r.jr.siaDirectory, err)
+		}
+	}
+}
+
+// deleteRandom deletes a random file from the renter.
+func (r *renterJob) deleteRandom() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// no-op with fewer than 10 files
+	if len(r.files) < deleteFileThreshold {
+		return nil
+	}
+
+	randindex, err := crypto.RandIntn(len(r.files))
+	if err != nil {
+		return err
+	}
+
+	if err = r.jr.client.Post(fmt.Sprintf("/renter/delete/%v", r.files[randindex]), "", nil); err != nil {
+		return err
+	}
+
+	log.Printf("[%v jobStorageRenter INFO]: successfully deleted file\n", r.jr.siaDirectory)
+	os.Remove(r.files[randindex].sourceFile)
+	r.files = append(r.files[:randindex], r.files[randindex+1:]...)
+
+	return nil
+}
+
 // isFileInDownloads grabs the files currently being downloaded by the
 // renter and returns bool `true` if fileToDownload exists in the
 // download list.  It also returns the DownloadInfo for the requested `file`.
@@ -282,24 +332,6 @@ func (r *renterJob) download() error {
 func (r *renterJob) upload() error {
 	r.jr.tg.Add()
 	defer r.jr.tg.Done()
-
-	// file deletion is disabled until uploading works reliably
-	/*
-		if i >= 10 {
-			randindex, err := crypto.RandIntn(len(files))
-			if err != nil {
-				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-				return
-			}
-			if err = j.client.Post(fmt.Sprintf("/renter/delete/%v", files[randindex]), "", nil); err != nil {
-				log.Printf("[%v jobStorageRenter ERROR]: %v\n", j.siaDirectory, err)
-				return
-			}
-			log.Printf("[%v jobStorageRenter INFO]: successfully deleted file\n", j.siaDirectory)
-			os.Remove(files[randindex])
-			files = append(files[:randindex], files[randindex+1:]...)
-		}
-	*/
 
 	// Generate some random data to upload. The file needs to be closed before
 	// the upload to the network starts, so this code is wrapped in a func such
@@ -435,6 +467,8 @@ func (j *jobRunner) storageRenter() {
 	rj := renterJob{
 		jr: j,
 	}
+
 	go rj.permanentUploader()
 	go rj.permanentDownloader()
+	go rj.permanentDeleter()
 }
