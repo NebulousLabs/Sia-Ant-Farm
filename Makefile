@@ -19,7 +19,8 @@ install:
 	go install $(pkgs)
 
 test: fmt vet install
-	go test -timeout=600s -race -v $(pkgs)
+	go test -timeout=1200s -race -v ./ant
+	go test -timeout=1200s -race -v ./sia-antfarm
 
 lint:
 	@for package in $(pkgs); do 													 \
