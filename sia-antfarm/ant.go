@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
 	"github.com/NebulousLabs/Sia/api"
@@ -33,7 +34,7 @@ func getAddrs(n int) ([]string, error) {
 // effectively bootstrapping the antfarm.
 func connectAnts(ants ...*ant.Ant) error {
 	if len(ants) < 2 {
-		return errors.New("you must call connectAnts with at least two ants.")
+		return errors.New("you must call connectAnts with at least two ants")
 	}
 	targetAnt := ants[0]
 	c := api.NewClient(targetAnt.APIAddr, "")
@@ -132,12 +133,21 @@ func startAnts(configs ...ant.AntConfig) ([]*ant.Ant, error) {
 func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
 	// if config.SiaDirectory isn't set, use ioutil.TempDir to create a new
 	// temporary directory.
-	if config.SiaDirectory == "" {
+	if config.SiaDirectory == "" && config.Name == "" {
 		tempdir, err := ioutil.TempDir("./antfarm-data", "ant")
 		if err != nil {
 			return ant.AntConfig{}, err
 		}
 		config.SiaDirectory = tempdir
+	}
+
+	if config.Name != "" {
+		siadir := fmt.Sprintf("./antfarm-data/%v", config.Name)
+		err := os.Mkdir(siadir, 0755)
+		if err != nil {
+			return ant.AntConfig{}, err
+		}
+		config.SiaDirectory = siadir
 	}
 
 	if config.SiadPath == "" {
