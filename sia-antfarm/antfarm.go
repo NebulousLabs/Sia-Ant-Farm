@@ -16,6 +16,7 @@ type (
 	// AntfarmConfig contains the fields to parse and use to create a sia-antfarm.
 	AntfarmConfig struct {
 		ListenAddress string
+		DataDirPrefix string
 		AntConfigs    []ant.AntConfig
 		AutoConnect   bool
 
@@ -42,8 +43,13 @@ type (
 // createAntfarm creates a new antFarm given the supplied AntfarmConfig
 func createAntfarm(config AntfarmConfig) (*antFarm, error) {
 	// clear old antfarm data before creating an antfarm
-	os.RemoveAll("./antfarm-data")
-	os.MkdirAll("./antfarm-data", 0700)
+	datadir := "./antfarm-data"
+	if config.DataDirPrefix != "" {
+		datadir = config.DataDirPrefix
+	}
+
+	os.RemoveAll(datadir)
+	os.MkdirAll(datadir, 0700)
 
 	farm := &antFarm{}
 
