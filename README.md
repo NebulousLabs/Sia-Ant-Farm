@@ -84,8 +84,12 @@ of eachother.
 	'SiadPath': the path to the `siad` binary, by default the `siad` in your path will be used.
 	'Jobs': an array of jobs for this ant to run. available jobs include: ['miner', 'host', 'renter', 'gateway']
 	'DesiredCurrency': a minimum (integer) amount of SiaCoin that this Ant will attempt to maintain by mining currency. This is mutually exclusive with the `miner` job.
+	'UpgradePath': an array of version strings to upgrade to. Each upgrade will be triggered after `UpgradeDelay` seconds.
+	'UpgradeDir': path to a directory containing the binaries to use for upgrades. This directory should be in the format of 'dir/version/siad'.
+	'UpgradeDelay': number of seconds to wait between upgrades.
 }
 ```
+
 
 
 # License

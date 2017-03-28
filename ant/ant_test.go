@@ -57,7 +57,7 @@ func TestUpgradeAnt(t *testing.T) {
 			"1.1.1",
 			"1.1.2",
 		},
-		UpgradeDelay: time.Second * 10,
+		UpgradeDelay: 10,
 		UpgradeDir:   "../binary-upgrades",
 	}
 

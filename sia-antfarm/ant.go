@@ -141,6 +141,10 @@ func parseConfig(config ant.AntConfig) (ant.AntConfig, error) {
 		config.SiaDirectory = tempdir
 	}
 
+	if config.UpgradeDir == "" {
+		config.UpgradeDir = "./binary-upgrades"
+	}
+
 	if config.Name != "" {
 		siadir := fmt.Sprintf("./antfarm-data/%v", config.Name)
 		err := os.Mkdir(siadir, 0755)

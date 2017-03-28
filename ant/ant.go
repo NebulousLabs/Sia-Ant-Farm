@@ -26,9 +26,15 @@ type AntConfig struct {
 
 	// UpgradePath is a slice of strings, where each string is a version to
 	// upgrade to.
-	UpgradePath  []string
-	UpgradeDelay time.Duration
-	UpgradeDir   string
+	UpgradePath []string
+
+	// UpgradeDelay is the number of seconds to wait between upgrades.
+	UpgradeDelay int
+
+	// UpgradeDir is the directory in which the `siad` binaries used to upgrade
+	// are stored. This directory should be laid out as `dir/version/siad`, an
+	// example directory is provided in this repo under `binary-upgrades`.
+	UpgradeDir string
 }
 
 // An Ant is a Sia Client programmed with network user stories. It executes
@@ -106,7 +112,7 @@ func (a *Ant) upgraderThread() {
 		a.siad = siad
 
 		select {
-		case <-time.After(a.config.UpgradeDelay):
+		case <-time.After(time.Second * time.Duration(a.config.UpgradeDelay)):
 		case <-a.tg.StopChan():
 			return
 		}
