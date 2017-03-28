@@ -1,10 +1,12 @@
 package ant
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os/exec"
 	"path"
+	"runtime"
 	"time"
 
 	"github.com/NebulousLabs/Sia/sync"
@@ -32,7 +34,7 @@ type AntConfig struct {
 	UpgradeDelay int
 
 	// UpgradeDir is the directory in which the `siad` binaries used to upgrade
-	// are stored. This directory should be laid out as `dir/version/siad`, an
+	// are stored. This directory should be laid out as `dir/version-platform-arch/siad`, an
 	// example directory is provided in this repo under `binary-upgrades`.
 	UpgradeDir string
 }
@@ -101,7 +103,7 @@ func (a *Ant) upgraderThread() {
 
 		stopSiad(a.APIAddr, a.siad.Process)
 
-		newSiadPath := path.Join(a.config.UpgradeDir, version, "siad")
+		newSiadPath := path.Join(a.config.UpgradeDir, fmt.Sprintf("%v-%v-%v", version, runtime.GOOS, runtime.GOARCH), "siad")
 
 		siad, err := newSiad(newSiadPath, a.config.SiaDirectory, a.config.APIAddr, a.config.RPCAddr, a.config.HostAddr)
 		if err != nil {
