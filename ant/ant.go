@@ -97,6 +97,12 @@ func (a *Ant) upgraderThread() {
 	defer a.tg.Done()
 
 	for _, version := range a.Config.UpgradePath {
+		select {
+		case <-time.After(time.Second * time.Duration(a.Config.UpgradeDelay)):
+		case <-a.tg.StopChan():
+			return
+		}
+
 		log.Printf("upgrading %v to %v...\n", a.Config.Name, version)
 
 		stopSiad(a.Config.APIAddr, a.siad.Process)
@@ -110,12 +116,6 @@ func (a *Ant) upgraderThread() {
 		}
 
 		a.siad = siad
-
-		select {
-		case <-time.After(time.Second * time.Duration(a.Config.UpgradeDelay)):
-		case <-a.tg.StopChan():
-			return
-		}
 	}
 }
 
