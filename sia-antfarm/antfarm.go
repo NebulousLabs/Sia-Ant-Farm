@@ -145,7 +145,7 @@ func (af *antFarm) permanentSyncMonitor() {
 				}
 				log.Println("Group ", i+1)
 				for _, a := range group {
-					log.Println(a.APIAddr)
+					log.Println(a.Config.APIAddr)
 				}
 			}
 		}

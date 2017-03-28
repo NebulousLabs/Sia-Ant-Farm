@@ -37,12 +37,12 @@ func connectAnts(ants ...*ant.Ant) error {
 		return errors.New("you must call connectAnts with at least two ants")
 	}
 	targetAnt := ants[0]
-	c := api.NewClient(targetAnt.APIAddr, "")
+	c := api.NewClient(targetAnt.Config.APIAddr, "")
 	for _, ant := range ants[1:] {
-		connectQuery := fmt.Sprintf("/gateway/connect/%v", ant.RPCAddr)
-		addr := modules.NetAddress(ant.RPCAddr)
+		connectQuery := fmt.Sprintf("/gateway/connect/%v", ant.Config.RPCAddr)
+		addr := modules.NetAddress(ant.Config.RPCAddr)
 		if addr.Host() == "" {
-			connectQuery = fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.RPCAddr)
+			connectQuery = fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.Config.RPCAddr)
 		}
 		err := c.Post(connectQuery, "", nil)
 		if err != nil {
@@ -60,7 +60,7 @@ func connectAnts(ants ...*ant.Ant) error {
 // in each group.
 func antConsensusGroups(ants ...*ant.Ant) (groups [][]*ant.Ant, err error) {
 	for _, a := range ants {
-		c := api.NewClient(a.APIAddr, "")
+		c := api.NewClient(a.Config.APIAddr, "")
 		var cg api.ConsensusGET
 		if err := c.Get("/consensus", &cg); err != nil {
 			return nil, err

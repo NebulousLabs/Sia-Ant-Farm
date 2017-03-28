@@ -42,9 +42,7 @@ type AntConfig struct {
 // An Ant is a Sia Client programmed with network user stories. It executes
 // these user stories and reports on their successfulness.
 type Ant struct {
-	APIAddr string
-	RPCAddr string
-	config  AntConfig
+	Config AntConfig
 
 	siad *exec.Cmd
 	jr   *jobRunner
@@ -98,14 +96,14 @@ func (a *Ant) upgraderThread() {
 	}
 	defer a.tg.Done()
 
-	for _, version := range a.config.UpgradePath {
-		log.Printf("upgrading %v to %v...\n", a.config.Name, version)
+	for _, version := range a.Config.UpgradePath {
+		log.Printf("upgrading %v to %v...\n", a.Config.Name, version)
 
-		stopSiad(a.APIAddr, a.siad.Process)
+		stopSiad(a.Config.APIAddr, a.siad.Process)
 
-		newSiadPath := path.Join(a.config.UpgradeDir, fmt.Sprintf("%v-%v-%v", version, runtime.GOOS, runtime.GOARCH), "siad")
+		newSiadPath := path.Join(a.Config.UpgradeDir, fmt.Sprintf("%v-%v-%v", version, runtime.GOOS, runtime.GOARCH), "siad")
 
-		siad, err := newSiad(newSiadPath, a.config.SiaDirectory, a.config.APIAddr, a.config.RPCAddr, a.config.HostAddr)
+		siad, err := newSiad(newSiadPath, a.Config.SiaDirectory, a.Config.APIAddr, a.Config.RPCAddr, a.Config.HostAddr)
 		if err != nil {
 			log.Printf("error starting siad after upgrade: %v\n", err)
 			continue
@@ -114,7 +112,7 @@ func (a *Ant) upgraderThread() {
 		a.siad = siad
 
 		select {
-		case <-time.After(time.Second * time.Duration(a.config.UpgradeDelay)):
+		case <-time.After(time.Second * time.Duration(a.Config.UpgradeDelay)):
 		case <-a.tg.StopChan():
 			return
 		}
@@ -166,9 +164,7 @@ func New(config AntConfig) (*Ant, error) {
 	}
 
 	a := &Ant{
-		APIAddr: config.APIAddr,
-		RPCAddr: config.RPCAddr,
-		config:  config,
+		Config: config,
 
 		siad: siad,
 		jr:   j,
@@ -188,7 +184,7 @@ func New(config AntConfig) (*Ant, error) {
 func (a *Ant) Close() error {
 	a.tg.Stop()
 	a.jr.Stop()
-	stopSiad(a.APIAddr, a.siad.Process)
+	stopSiad(a.Config.APIAddr, a.siad.Process)
 	return nil
 }
 
