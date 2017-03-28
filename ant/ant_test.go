@@ -70,7 +70,7 @@ func TestUpgradeAnt(t *testing.T) {
 	seenVersions := make(map[string]bool)
 	success := false
 
-	for start := time.Now(); time.Since(start) < time.Minute*2; time.Sleep(time.Second * 3) {
+	for start := time.Now(); time.Since(start) < time.Minute*10; time.Sleep(time.Second * 3) {
 		c := api.NewClient("localhost:31337", "")
 		dv := DaemonVersion{}
 		c.Get("/daemon/version", &dv)
