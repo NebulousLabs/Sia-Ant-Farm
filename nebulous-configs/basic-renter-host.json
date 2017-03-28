@@ -8,24 +8,28 @@
 			]
 		},
 		{
+			"Name": "host1",
 			"jobs": [
 				"host"
 			],
 			"desiredcurrency": 100000
 		},
 		{
+			"Name": "host2",
 			"jobs": [
 				"host"
 			],
 			"desiredcurrency": 100000
 		},
 		{
+			"Name": "host3",
 			"jobs": [
 				"host"
 			],
 			"desiredcurrency": 100000
 		},
 		{
+			"Name": "renter",
 			"jobs": [
 				"renter"
 			],

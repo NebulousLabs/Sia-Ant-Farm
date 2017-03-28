@@ -16,6 +16,7 @@ type AntConfig struct {
 	RPCAddr         string `json:",omitempty"`
 	HostAddr        string `json:",omitempty"`
 	SiaDirectory    string `json:",omitempty"`
+	Name            string `json:",omitempty"`
 	SiadPath        string
 	Jobs            []string
 	DesiredCurrency uint64

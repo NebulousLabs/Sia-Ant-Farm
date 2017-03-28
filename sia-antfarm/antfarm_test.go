@@ -64,6 +64,7 @@ func TestConnectExternalAntfarm(t *testing.T) {
 
 	config1 := AntfarmConfig{
 		ListenAddress: "127.0.0.1:31337",
+		DataDirPrefix: "antfarm-data1",
 		AntConfigs: []ant.AntConfig{
 			{
 				RPCAddr: "127.0.0.1:3337",
@@ -76,6 +77,7 @@ func TestConnectExternalAntfarm(t *testing.T) {
 
 	config2 := AntfarmConfig{
 		ListenAddress: "127.0.0.1:31338",
+		DataDirPrefix: "antfarm-data2",
 		AntConfigs: []ant.AntConfig{
 			{
 				RPCAddr: "127.0.0.1:3338",
