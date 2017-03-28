@@ -51,7 +51,7 @@ func TestNewAntfarm(t *testing.T) {
 	if len(ants) != len(config.AntConfigs) {
 		t.Fatal("expected /ants to return the correct number of ants")
 	}
-	if ants[0].RPCAddr != config.AntConfigs[0].RPCAddr {
+	if ants[0].Config.RPCAddr != config.AntConfigs[0].RPCAddr {
 		t.Fatal("expected /ants to return the correct rpc address")
 	}
 }
@@ -111,7 +111,7 @@ func TestConnectExternalAntfarm(t *testing.T) {
 	time.Sleep(time.Second * 3)
 
 	// verify that farm2 has farm1 as its peer
-	c := api.NewClient(farm1.ants[0].APIAddr, "")
+	c := api.NewClient(farm1.ants[0].Config.APIAddr, "")
 	var gatewayInfo api.GatewayGET
 	err = c.Get("/gateway", &gatewayInfo)
 	if err != nil {
@@ -121,12 +121,12 @@ func TestConnectExternalAntfarm(t *testing.T) {
 	for _, ant := range farm2.ants {
 		hasAddr := false
 		for _, peer := range gatewayInfo.Peers {
-			if fmt.Sprintf("%s", peer.NetAddress) == ant.RPCAddr {
+			if fmt.Sprintf("%s", peer.NetAddress) == ant.Config.RPCAddr {
 				hasAddr = true
 			}
 		}
 		if !hasAddr {
-			t.Fatalf("farm1 is missing %v", ant.RPCAddr)
+			t.Fatalf("farm1 is missing %v", ant.Config.RPCAddr)
 		}
 	}
 }
