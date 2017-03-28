@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/sync"
 	"github.com/NebulousLabs/Sia/types"
 	"github.com/NebulousLabs/go-upnp"
@@ -106,6 +107,7 @@ func (a *Ant) upgraderThread() {
 		log.Printf("upgrading %v to %v...\n", a.Config.Name, version)
 
 		stopSiad(a.Config.APIAddr, a.siad.Process)
+		a.jr.Stop()
 
 		newSiadPath := path.Join(a.Config.UpgradeDir, fmt.Sprintf("%v-%v-%v", version, runtime.GOOS, runtime.GOARCH), "siad")
 
@@ -115,7 +117,38 @@ func (a *Ant) upgraderThread() {
 			continue
 		}
 
+		j := &jobRunner{
+			client:         api.NewClient(a.Config.APIAddr, ""),
+			siaDirectory:   a.Config.SiaDirectory,
+			walletPassword: a.jr.walletPassword,
+		}
+
+		err = j.client.Post("/wallet/unlock", fmt.Sprintf("encryptionpassword=%s&dictionary=%s", a.jr.walletPassword, "english"), nil)
+		if err != nil {
+			continue
+		}
+
+		for _, job := range a.Config.Jobs {
+			switch job {
+			case "miner":
+				go j.blockMining()
+			case "host":
+				go j.jobHost()
+			case "renter":
+				go j.storageRenter()
+			case "gateway":
+				go j.gatewayConnectability()
+			}
+		}
+
+		if a.Config.DesiredCurrency != 0 {
+			go j.balanceMaintainer(types.SiacoinPrecision.Mul64(a.Config.DesiredCurrency))
+		}
+
 		a.siad = siad
+		a.jr = j
+
+		log.Printf("successfully upgraded %v to %v...\n", a.Config.Name, version)
 	}
 }
 
