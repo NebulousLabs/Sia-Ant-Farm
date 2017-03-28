@@ -4,7 +4,10 @@ import (
 	"log"
 	"net"
 	"os/exec"
+	"path"
+	"time"
 
+	"github.com/NebulousLabs/Sia/sync"
 	"github.com/NebulousLabs/Sia/types"
 	"github.com/NebulousLabs/go-upnp"
 )
@@ -20,6 +23,12 @@ type AntConfig struct {
 	SiadPath        string
 	Jobs            []string
 	DesiredCurrency uint64
+
+	// UpgradePath is a slice of strings, where each string is a version to
+	// upgrade to.
+	UpgradePath  []string
+	UpgradeDelay time.Duration
+	UpgradeDir   string
 }
 
 // An Ant is a Sia Client programmed with network user stories. It executes
@@ -27,6 +36,7 @@ type AntConfig struct {
 type Ant struct {
 	APIAddr string
 	RPCAddr string
+	config  AntConfig
 
 	siad *exec.Cmd
 	jr   *jobRunner
@@ -35,6 +45,8 @@ type Ant struct {
 	// for this ant. The map will just keep growing, but it shouldn't take up a
 	// prohibitive amount of space.
 	SeenBlocks map[types.BlockHeight]types.BlockID `json:"-"`
+
+	tg sync.ThreadGroup
 }
 
 // clearPorts discovers the UPNP enabled router and clears the ports used by an
@@ -66,6 +78,39 @@ func clearPorts(config AntConfig) error {
 	}
 
 	return nil
+}
+
+// upgraderThread is a goroutine that waits `UpgradeDelay` and upgrades to the
+// next version in the ant's `UpgradePath`. Once the final version is reached,
+// upgrading is stopped.
+func (a *Ant) upgraderThread() {
+	err := a.tg.Add()
+	if err != nil {
+		return
+	}
+	defer a.tg.Done()
+
+	for _, version := range a.config.UpgradePath {
+		log.Printf("upgrading %v to %v...\n", a.config.Name, version)
+
+		stopSiad(a.APIAddr, a.siad.Process)
+
+		newSiadPath := path.Join(a.config.UpgradeDir, version, "siad")
+
+		siad, err := newSiad(newSiadPath, a.config.SiaDirectory, a.config.APIAddr, a.config.RPCAddr, a.config.HostAddr)
+		if err != nil {
+			log.Printf("error starting siad after upgrade: %v\n", err)
+			continue
+		}
+
+		a.siad = siad
+
+		select {
+		case <-time.After(a.config.UpgradeDelay):
+		case <-a.tg.StopChan():
+			return
+		}
+	}
 }
 
 // New creates a new Ant using the configuration passed through `config`.
@@ -112,20 +157,28 @@ func New(config AntConfig) (*Ant, error) {
 		go j.balanceMaintainer(types.SiacoinPrecision.Mul64(config.DesiredCurrency))
 	}
 
-	return &Ant{
+	a := &Ant{
 		APIAddr: config.APIAddr,
 		RPCAddr: config.RPCAddr,
+		config:  config,
 
 		siad: siad,
 		jr:   j,
 
 		SeenBlocks: make(map[types.BlockHeight]types.BlockID),
-	}, nil
+	}
+
+	if len(config.UpgradePath) > 0 {
+		go a.upgraderThread()
+	}
+
+	return a, nil
 }
 
 // Close releases all resources created by the ant, including the Siad
 // subprocess.
 func (a *Ant) Close() error {
+	a.tg.Stop()
 	a.jr.Stop()
 	stopSiad(a.APIAddr, a.siad.Process)
 	return nil
