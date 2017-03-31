@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/types"
 )
 
 func TestNewAnt(t *testing.T) {
@@ -45,6 +46,7 @@ func TestUpgradeAnt(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(datadir)
+
 	config := AntConfig{
 		APIAddr:      "localhost:31337",
 		RPCAddr:      "localhost:31338",

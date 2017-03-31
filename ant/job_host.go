@@ -2,12 +2,13 @@ package ant
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -38,15 +39,12 @@ func (j *jobRunner) jobHost() {
 	}
 
 	// Create a temporary folder for hosting
-	hostdir, err := ioutil.TempDir("", "hostdata")
-	if err != nil {
-		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
-		return
-	}
-	defer os.RemoveAll(hostdir)
+	hostdir, _ := filepath.Abs(filepath.Join(j.siaDirectory, "hostdata"))
+	os.MkdirAll(hostdir, 0700)
 
 	// Add the storage folder.
-	err = j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=30000000000", hostdir), nil)
+	size := modules.SectorSize * 4096
+	err := j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=%d", hostdir, size), nil)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return

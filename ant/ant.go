@@ -2,6 +2,7 @@ package ant
 
 import (
 	"fmt"
+	"errors"
 	"log"
 	"net"
 	"os/exec"
@@ -221,6 +222,33 @@ func (a *Ant) Close() error {
 	return nil
 }
 
+// StartJob starts the job indicated by `job` after an ant has been
+// initialized. Arguments are passed to the job using args.
+func (a *Ant) StartJob(job string, args ...interface{}) error {
+	if a.jr == nil {
+		return errors.New("ant is not running")
+	}
+
+	switch job {
+	case "miner":
+		go a.jr.blockMining()
+	case "host":
+		go a.jr.jobHost()
+	case "renter":
+		go a.jr.storageRenter()
+	case "gateway":
+		go a.jr.gatewayConnectability()
+	case "bigspender":
+		go a.jr.bigSpender()
+	case "littlesupplier":
+		go a.jr.littleSupplier(args[0].(types.UnlockHash))
+	default:
+		return errors.New("no such job")
+	}
+
+	return nil
+}
+
 // BlockHeight returns the highest block height seen by the ant.
 func (a *Ant) BlockHeight() types.BlockHeight {
 	height := types.BlockHeight(0)
@@ -230,4 +258,18 @@ func (a *Ant) BlockHeight() types.BlockHeight {
 		}
 	}
 	return height
+}
+
+// WalletAddress returns a wallet address that this ant can receive coins on.
+func (a *Ant) WalletAddress() (*types.UnlockHash, error) {
+	if a.jr == nil {
+		return nil, errors.New("ant is not running")
+	}
+
+	var addressGet api.WalletAddressGET
+	if err := a.jr.client.Get("/wallet/address", &addressGet); err != nil {
+		return nil, err
+	}
+
+	return &addressGet.Address, nil
 }

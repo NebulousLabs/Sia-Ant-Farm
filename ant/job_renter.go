@@ -1,8 +1,8 @@
 package ant
 
 import (
-	"crypto/rand"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,11 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NebulousLabs/merkletree"
+
 	"github.com/NebulousLabs/Sia/api"
-	"github.com/NebulousLabs/Sia/build"
 	"github.com/NebulousLabs/Sia/crypto"
 	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
+	"github.com/NebulousLabs/fastrand"
 )
 
 const (
@@ -83,50 +85,12 @@ type renterJob struct {
 }
 
 // randFillFile will append 'size' bytes to the input file, returning the
-// merkle root of the bytes that were appended. For whatever reason,
-// rand.Reader is really slow. This will be substantially faster for large
-// files.
-func randFillFile(f *os.File, size uint64) (crypto.Hash, error) {
-	// Get some initial entropy which will be used to guarantee randomness for
-	// the file.
-	initialEntropy := make([]byte, crypto.HashSize)
-	_, err := rand.Read(initialEntropy)
-	if err != nil {
-		return crypto.Hash{}, err
-	}
-
-	// Sanity check - the next bit of code assumes that crypto.SegmentSize is
-	// 2x crypto.HashSize. If that's not the case, panic.
-	if crypto.HashSize*2 != crypto.SegmentSize {
-		build.Critical("randFillFile written for different constants", crypto.HashSize, crypto.SegmentSize)
-	}
-
-	var progress uint64
-	t := crypto.NewTree()
-	for progress < size {
-		firstHalf := crypto.HashAll(progress, initialEntropy)
-		secondHalf := crypto.HashAll(progress+1, initialEntropy)
-		full := append(firstHalf[:], secondHalf[:]...)
-
-		// Truncate 'full' if we're at the last bit of data and there's less
-		// than crypto.SegmentSize bytes left to write.
-		if size-progress < crypto.SegmentSize {
-			full = full[:size-progress]
-		}
-
-		// Push the rand data into the merkle tree.
-		t.PushObject(full)
-
-		// Write the rand data to the file.
-		_, err = f.Write(full)
-		if err != nil {
-			return crypto.Hash{}, err
-		}
-
-		progress += crypto.SegmentSize
-	}
-
-	return t.Root(), nil
+// merkle root of the bytes that were appended.
+func randFillFile(f *os.File, size uint64) (h crypto.Hash, err error) {
+	tee := io.TeeReader(io.LimitReader(fastrand.Reader, int64(size)), f)
+	root, err := merkletree.ReaderRoot(tee, crypto.NewHash(), crypto.SegmentSize)
+	copy(h[:], root)
+	return
 }
 
 // permanentDownloader is a function that continuously runs for the renter job,
@@ -195,12 +159,9 @@ func (r *renterJob) deleteRandom() error {
 		return nil
 	}
 
-	randindex, err := crypto.RandIntn(len(r.files))
-	if err != nil {
-		return err
-	}
+	randindex := fastrand.Intn(len(r.files))
 
-	if err = r.jr.client.Post(fmt.Sprintf("/renter/delete/%v", r.files[randindex]), "", nil); err != nil {
+	if err := r.jr.client.Post(fmt.Sprintf("/renter/delete/%v", r.files[randindex]), "", nil); err != nil {
 		return err
 	}
 
@@ -257,8 +218,7 @@ func (r *renterJob) download() error {
 	}
 
 	// Download a file at random.
-	randindex, _ := crypto.RandIntn(len(availableFiles))
-	fileToDownload := availableFiles[randindex]
+	fileToDownload := availableFiles[fastrand.Intn(len(availableFiles))]
 
 	// Use ioutil.TempFile to get a random temporary filename.
 	f, err := ioutil.TempFile("", "antfarm-renter")
