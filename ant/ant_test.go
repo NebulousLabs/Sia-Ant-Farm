@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/api"
-	"github.com/NebulousLabs/Sia/types"
 )
 
 func TestNewAnt(t *testing.T) {
