@@ -39,7 +39,7 @@ func TestStartAnts(t *testing.T) {
 
 	// verify each ant has a reachable api
 	for _, ant := range ants {
-		c := api.NewClient(ant.APIAddr, "")
+		c := api.NewClient(ant.Config.APIAddr, "")
 		if err := c.Get("/consensus", nil); err != nil {
 			t.Fatal(err)
 		}
@@ -82,7 +82,7 @@ func TestConnectAnts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := api.NewClient(ants[0].APIAddr, "")
+	c := api.NewClient(ants[0].Config.APIAddr, "")
 	var gatewayInfo api.GatewayGET
 	err = c.Get("/gateway", &gatewayInfo)
 	if err != nil {
@@ -92,12 +92,12 @@ func TestConnectAnts(t *testing.T) {
 	for _, ant := range ants[1:] {
 		hasAddr := false
 		for _, peer := range gatewayInfo.Peers {
-			if fmt.Sprintf("%s", peer.NetAddress) == "127.0.0.1"+ant.RPCAddr {
+			if fmt.Sprintf("%s", peer.NetAddress) == "127.0.0.1"+ant.Config.RPCAddr {
 				hasAddr = true
 			}
 		}
 		if !hasAddr {
-			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.RPCAddr)
+			t.Fatalf("the central ant is missing %v", "127.0.0.1"+ant.Config.RPCAddr)
 		}
 	}
 }
