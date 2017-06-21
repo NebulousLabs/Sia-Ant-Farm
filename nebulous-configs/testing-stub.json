@@ -1,0 +1,31 @@
+{
+	"antconfigs": 
+	[ 
+		{
+			"APIAddr": "localhost:9980",
+			"jobs": [
+				"gateway",
+				"miner"
+			]
+		},
+		{
+			"jobs": [
+				"host"
+			],
+			"desiredcurrency": 100000
+		},
+		{
+			"jobs": [
+				"host"
+			],
+			"desiredcurrency": 100000
+		},
+		{
+			"jobs": [
+				"host"
+			],
+			"desiredcurrency": 100000
+		}
+	],
+	"autoconnect": true
+}
