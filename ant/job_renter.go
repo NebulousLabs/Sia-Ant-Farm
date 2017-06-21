@@ -175,8 +175,8 @@ func (r *renterJob) deleteRandom() error {
 // isFileInDownloads grabs the files currently being downloaded by the
 // renter and returns bool `true` if fileToDownload exists in the
 // download list.  It also returns the DownloadInfo for the requested `file`.
-func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, modules.DownloadInfo, error) {
-	var dlinfo modules.DownloadInfo
+func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, api.DownloadInfo, error) {
+	var dlinfo api.DownloadInfo
 	var renterDownloads api.RenterDownloadQueue
 	if err := client.Get("/renter/downloads", &renterDownloads); err != nil {
 		return false, dlinfo, err
