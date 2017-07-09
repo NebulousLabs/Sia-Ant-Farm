@@ -6,17 +6,17 @@ tests of the [Sia](https://github.com/NebulousLabs/Sia) platform.  These test
 are long-running and offer superior insight into high-level
 network behaviour than Sia's existing automated testing suite.
 
-# Prerequisites
-
-You must have `siad` installed.  If it's outside of your path, provide its location using the `-siad` flag.  For all flags, see `sia-antfarm -h`.
-
 # Install
 
-`make`
+```shell
+go get -u github.com/NebulousLabs/Sia-Ant-Farm/...
+cd $GOPATH/src/github.com/NebulousLabs/Sia-Ant-Farm
+make dependencies && make
+```
 
 # Running a sia-antfarm
 
-This repository contains one utility, `sia-antfarm`. `sia-antfarm` starts up a number of `siad` instances, using jobs and configuration options parsed from the input `config.json`. `sia-antfarm` takes on flag, `-config`, which is a path to a JSON file defining the ants and their jobs. See `nebulous-configs/` for some examples that we use to test Sia.
+This repository contains one utility, `sia-antfarm`. `sia-antfarm` starts up a number of `siad` instances, using jobs and configuration options parsed from the input `config.json`. `sia-antfarm` takes a flag, `-config`, which is a path to a JSON file defining the ants and their jobs. See `nebulous-configs/` for some examples that we use to test Sia.
 
 An example `config.json`:
 
@@ -61,7 +61,9 @@ This `config.json` creates 5 ants, with four running the `gateway` job
 and one running a `gateway` and a `mining` job.  If `HostAddr`, `APIAddr`, or
 `RPCAddr` are not specified, they will be set to a random port.  If
 `autoconnect` is set to `false`, the ants will not automatically be made peers
-of eachother.
+of each other.
+
+Note that the ants connect to each other over the public Internet, so you must either have UPnP enabled on your router or you must configure your system so that the ants' `RPCAddr` and `HostAddr` ports are accessible from the Internet.
 
 ## Available configuration options:
 
@@ -86,7 +88,6 @@ of eachother.
 	'DesiredCurrency': a minimum (integer) amount of SiaCoin that this Ant will attempt to maintain by mining currency. This is mutually exclusive with the `miner` job.
 }
 ```
-
 
 # License
 
