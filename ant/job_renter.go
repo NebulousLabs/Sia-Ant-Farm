@@ -320,7 +320,11 @@ func (r *renterJob) upload() error {
 
 	// use the sourcePath with its leading slash stripped for the sia path
 	siapath := sourcePath[1:]
-
+	if(string(sourcePath[1]) == ":") {
+		// looks like a Windows path - Cut Differently!
+		siapath = sourcePath[3:]
+	} 
+	
 	// Add the file to the renter.
 	rf := renterFile{
 		merkleRoot: merkleRoot,
