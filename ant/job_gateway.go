@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api"
 )
 
 // gatewayConnectability will print an error to the log if the node has zero
