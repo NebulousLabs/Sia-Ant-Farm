@@ -49,7 +49,7 @@ An example `config.json`:
 			"apiaddr": "127.0.0.1:9980",
 			"jobs": [
 				"gateway",
-				"mining"
+				"miner"
 			]
 		}
 	],
@@ -58,7 +58,7 @@ An example `config.json`:
 ```
 
 This `config.json` creates 5 ants, with four running the `gateway` job
-and one running a `gateway` and a `mining` job.  If `HostAddr`, `APIAddr`, or
+and one running a `gateway` and a `miner` job.  If `HostAddr`, `APIAddr`, or
 `RPCAddr` are not specified, they will be set to a random port.  If
 `autoconnect` is set to `false`, the ants will not automatically be made peers
 of each other.
