@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api"
 )
 
 // verify that createAntfarm() creates a new antfarm correctly.
