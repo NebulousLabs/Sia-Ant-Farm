@@ -1,11 +1,9 @@
 package ant
 
 import (
-	"fmt"
 	"log"
 	"time"
 
-	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -25,8 +23,8 @@ func (j *jobRunner) bigSpender() {
 		case <-time.After(spendInterval):
 		}
 
-		var walletGet api.WalletGET
-		if err := j.client.Get("/wallet", &walletGet); err != nil {
+		walletGet, err := j.client.WalletGet()
+		if err != nil {
 			log.Printf("[%v jobSpender ERROR]: %v\n", j.siaDirectory, err)
 			return
 		}
@@ -38,7 +36,7 @@ func (j *jobRunner) bigSpender() {
 		log.Printf("[%v jobSpender INFO]: sending a large transaction\n", j.siaDirectory)
 
 		voidaddress := types.UnlockHash{}
-		err := j.client.Post("/wallet/siacoins", fmt.Sprintf("amount=%v&destination=%v", spendThreshold, voidaddress), nil)
+		_, err = j.client.WalletSiacoinsPost(spendThreshold, voidaddress)
 		if err != nil {
 			log.Printf("[%v jobSpender ERROR]: %v\n", j.siaDirectory, err)
 			continue

@@ -1,11 +1,9 @@
 package ant
 
 import (
-	"fmt"
 	"log"
 	"time"
 
-	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -25,8 +23,8 @@ func (j *jobRunner) littleSupplier(sendAddress types.UnlockHash) {
 		case <-time.After(sendInterval):
 		}
 
-		var walletGet api.WalletGET
-		if err := j.client.Get("/wallet", &walletGet); err != nil {
+		walletGet, err := j.client.WalletGet()
+		if err != nil {
 			log.Printf("[%v jobSpender ERROR]: %v\n", j.siaDirectory, err)
 			return
 		}
@@ -35,7 +33,7 @@ func (j *jobRunner) littleSupplier(sendAddress types.UnlockHash) {
 			continue
 		}
 
-		err := j.client.Post("/wallet/siacoins", fmt.Sprintf("amount=%v&destination=%v", sendAmount, sendAddress), nil)
+		_, err = j.client.WalletSiacoinsPost(sendAmount, sendAddress)
 		if err != nil {
 			log.Printf("[%v jobSupplier ERROR]: %v\n", j.siaDirectory, err)
 		}

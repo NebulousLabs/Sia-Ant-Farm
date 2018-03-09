@@ -3,8 +3,6 @@ package ant
 import (
 	"log"
 	"time"
-
-	"github.com/NebulousLabs/Sia/api"
 )
 
 // gatewayConnectability will print an error to the log if the node has zero
@@ -31,8 +29,7 @@ func (j *jobRunner) gatewayConnectability() {
 		// Count the number of peers that the gateway has. An error is reported
 		// for less than two peers because the gateway is likely connected to
 		// itself.
-		var gatewayInfo api.GatewayGET
-		err := j.client.Get("/gateway", &gatewayInfo)
+		gatewayInfo, err := j.client.GatewayGet()
 		if err != nil {
 			log.Printf("[ERROR] [gateway] [%v] error when calling /gateway: %v\n", j.siaDirectory, err)
 		}

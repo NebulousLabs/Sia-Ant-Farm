@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
-	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/modules"
+	"github.com/NebulousLabs/Sia/node/api/client"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -37,14 +37,14 @@ func connectAnts(ants ...*ant.Ant) error {
 		return errors.New("you must call connectAnts with at least two ants")
 	}
 	targetAnt := ants[0]
-	c := api.NewClient(targetAnt.APIAddr, "")
+	c := client.New(targetAnt.APIAddr)
 	for _, ant := range ants[1:] {
-		connectQuery := fmt.Sprintf("/gateway/connect/%v", ant.RPCAddr)
+		connectQuery := ant.RPCAddr
 		addr := modules.NetAddress(ant.RPCAddr)
 		if addr.Host() == "" {
-			connectQuery = fmt.Sprintf("/gateway/connect/%v", "127.0.0.1"+ant.RPCAddr)
+			connectQuery = "127.0.0.1" + ant.RPCAddr
 		}
-		err := c.Post(connectQuery, "", nil)
+		err := c.GatewayConnectPost(modules.NetAddress(connectQuery))
 		if err != nil {
 			return err
 		}
@@ -60,9 +60,9 @@ func connectAnts(ants ...*ant.Ant) error {
 // in each group.
 func antConsensusGroups(ants ...*ant.Ant) (groups [][]*ant.Ant, err error) {
 	for _, a := range ants {
-		c := api.NewClient(a.APIAddr, "")
-		var cg api.ConsensusGET
-		if err := c.Get("/consensus", &cg); err != nil {
+		c := client.New(a.APIAddr)
+		cg, err := c.ConsensusGet()
+		if err != nil {
 			return nil, err
 		}
 		a.SeenBlocks[cg.Height] = cg.CurrentBlock

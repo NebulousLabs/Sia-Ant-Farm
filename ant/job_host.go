@@ -1,13 +1,11 @@
 package ant
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/NebulousLabs/Sia/api"
 	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/types"
 )
@@ -22,8 +20,7 @@ func (j *jobRunner) jobHost() {
 	desiredbalance := types.NewCurrency64(50000).Mul(types.SiacoinPrecision)
 	success := false
 	for start := time.Now(); time.Since(start) < 5*time.Minute; time.Sleep(time.Second) {
-		var walletInfo api.WalletGET
-		err := j.client.Get("/wallet", &walletInfo)
+		walletInfo, err := j.client.WalletGet()
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 			return
@@ -44,7 +41,7 @@ func (j *jobRunner) jobHost() {
 
 	// Add the storage folder.
 	size := modules.SectorSize * 4096
-	err := j.client.Post("/host/storage/folders/add", fmt.Sprintf("path=%s&size=%d", hostdir, size), nil)
+	err := j.client.HostStorageFoldersAddPost(hostdir, size)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
@@ -54,7 +51,7 @@ func (j *jobRunner) jobHost() {
 	// failure and returning.
 	success = false
 	for try := 0; try < 5; try++ {
-		err = j.client.Post("/host/announce", "", nil)
+		err = j.client.HostAnnouncePost()
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		} else {
@@ -70,7 +67,7 @@ func (j *jobRunner) jobHost() {
 	log.Printf("[%v jobHost INFO]: succesfully performed host announcement\n", j.siaDirectory)
 
 	// Accept contracts
-	err = j.client.Post("/host", "acceptingcontracts=true", nil)
+	err = j.client.HostAcceptingContractsPost(true)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
@@ -86,8 +83,7 @@ func (j *jobRunner) jobHost() {
 		case <-time.After(time.Second * 15):
 		}
 
-		var hostInfo api.HostGET
-		err = j.client.Get("/host", &hostInfo)
+		hostInfo, err := j.client.HostGet()
 		if err != nil {
 			log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		}

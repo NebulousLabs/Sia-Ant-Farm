@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 )
 
 // TestStartAnts verifies that startAnts successfully starts ants given some
@@ -39,8 +39,8 @@ func TestStartAnts(t *testing.T) {
 
 	// verify each ant has a reachable api
 	for _, ant := range ants {
-		c := api.NewClient(ant.APIAddr, "")
-		if err := c.Get("/consensus", nil); err != nil {
+		c := client.New(ant.APIAddr)
+		if _, err := c.ConsensusGet(); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -82,9 +82,8 @@ func TestConnectAnts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c := api.NewClient(ants[0].APIAddr, "")
-	var gatewayInfo api.GatewayGET
-	err = c.Get("/gateway", &gatewayInfo)
+	c := client.New(ants[0].APIAddr)
+	gatewayInfo, err := c.GatewayGet()
 	if err != nil {
 		t.Fatal(err)
 	}

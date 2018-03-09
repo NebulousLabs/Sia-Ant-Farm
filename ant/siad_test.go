@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 )
 
 // TestNewSiad tests that NewSiad creates a reachable Sia API
@@ -27,8 +27,8 @@ func TestNewSiad(t *testing.T) {
 	}
 	defer siad.Process.Kill()
 
-	c := api.NewClient("localhost:9990", "")
-	if err := c.Get("/consensus", nil); err != nil {
+	c := client.New("localhost:9990")
+	if _, err := c.ConsensusGet(); err != nil {
 		t.Error(err)
 	}
 	siad.Process.Kill()

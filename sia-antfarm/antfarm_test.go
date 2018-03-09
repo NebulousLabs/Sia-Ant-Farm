@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia-Ant-Farm/ant"
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 )
 
 // verify that createAntfarm() creates a new antfarm correctly.
@@ -111,9 +111,8 @@ func TestConnectExternalAntfarm(t *testing.T) {
 	time.Sleep(time.Second * 3)
 
 	// verify that farm2 has farm1 as its peer
-	c := api.NewClient(farm1.ants[0].APIAddr, "")
-	var gatewayInfo api.GatewayGET
-	err = c.Get("/gateway", &gatewayInfo)
+	c := client.New(farm1.ants[0].APIAddr)
+	gatewayInfo, err := c.GatewayGet()
 	if err != nil {
 		t.Fatal(err)
 	}

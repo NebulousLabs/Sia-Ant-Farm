@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/NebulousLabs/Sia/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -29,8 +29,8 @@ func TestNewAnt(t *testing.T) {
 	}
 	defer ant.Close()
 
-	c := api.NewClient("localhost:31337", "")
-	if err = c.Get("/consensus", nil); err != nil {
+	c := client.New("localhost:31337")
+	if _, err = c.ConsensusGet(); err != nil {
 		t.Fatal(err)
 	}
 }

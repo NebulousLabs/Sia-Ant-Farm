@@ -3,8 +3,6 @@ package ant
 import (
 	"log"
 	"time"
-
-	"github.com/NebulousLabs/Sia/api"
 )
 
 // blockMining indefinitely mines blocks.  If more than 100
@@ -14,14 +12,13 @@ func (j *jobRunner) blockMining() {
 	j.tg.Add()
 	defer j.tg.Done()
 
-	err := j.client.Get("/miner/start", nil)
+	err := j.client.MinerStartGet()
 	if err != nil {
 		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		return
 	}
 
-	var walletInfo api.WalletGET
-	err = j.client.Get("/wallet", &walletInfo)
+	walletInfo, err := j.client.WalletGet()
 	if err != nil {
 		log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		return
@@ -36,7 +33,7 @@ func (j *jobRunner) blockMining() {
 		case <-time.After(time.Second * 100):
 		}
 
-		err = j.client.Get("/wallet", &walletInfo)
+		walletInfo, err = j.client.WalletGet()
 		if err != nil {
 			log.Printf("[%v blockMining ERROR]: %v\n", j.siaDirectory, err)
 		}
