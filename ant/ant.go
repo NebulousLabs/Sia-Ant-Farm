@@ -6,7 +6,6 @@ import (
 	"net"
 	"os/exec"
 
-	"github.com/NebulousLabs/Sia/node/api"
 	"github.com/NebulousLabs/Sia/types"
 	"github.com/NebulousLabs/go-upnp"
 )
@@ -180,8 +179,8 @@ func (a *Ant) WalletAddress() (*types.UnlockHash, error) {
 		return nil, errors.New("ant is not running")
 	}
 
-	var addressGet api.WalletAddressGET
-	if err := a.jr.client.Get("/wallet/address", &addressGet); err != nil {
+	addressGet, err := a.jr.client.WalletAddressGet()
+	if err != nil {
 		return nil, err
 	}
 

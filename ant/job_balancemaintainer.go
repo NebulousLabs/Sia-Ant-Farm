@@ -4,7 +4,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/NebulousLabs/Sia/node/api"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -15,7 +14,7 @@ func (j *jobRunner) balanceMaintainer(desiredBalance types.Currency) {
 	defer j.tg.Done()
 
 	minerRunning := true
-	err := j.client.Get("/miner/start", nil)
+	err := j.client.MinerStartGet()
 	if err != nil {
 		log.Printf("[%v balanceMaintainer ERROR]: %v\n", j.siaDirectory, err)
 		return
@@ -32,8 +31,7 @@ func (j *jobRunner) balanceMaintainer(desiredBalance types.Currency) {
 		case <-time.After(time.Second * 20):
 		}
 
-		var walletInfo api.WalletGET
-		err = j.client.Get("/wallet", &walletInfo)
+		walletInfo, err := j.client.WalletGet()
 		if err != nil {
 			log.Printf("[%v balanceMaintainer ERROR]: %v\n", j.siaDirectory, err)
 			return
@@ -43,14 +41,14 @@ func (j *jobRunner) balanceMaintainer(desiredBalance types.Currency) {
 		if !minerRunning && !haveDesiredBalance {
 			log.Printf("[%v balanceMaintainer INFO]: not enough currency, starting the miner\n", j.siaDirectory)
 			minerRunning = true
-			if err = j.client.Get("/miner/start", nil); err != nil {
+			if err = j.client.MinerStartGet(); err != nil {
 				log.Printf("[%v miner ERROR]: %v\n", j.siaDirectory, err)
 				return
 			}
 		} else if minerRunning && haveDesiredBalance {
 			log.Printf("[%v balanceMaintainer INFO]: mined enough currency, stopping the miner\n", j.siaDirectory)
 			minerRunning = false
-			if err = j.client.Get("/miner/stop", nil); err != nil {
+			if err = j.client.MinerStopGet(); err != nil {
 				log.Printf("[%v balanceMaintainer ERROR]: %v\n", j.siaDirectory, err)
 				return
 			}

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NebulousLabs/Sia/node/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 )
 
 // newSiad spawns a new siad process using os/exec and waits for the api to
@@ -66,7 +66,7 @@ func checkSiadConstants(siadPath string) error {
 // stopSiad tries to stop the siad running at `apiAddr`, issuing a kill to its
 // `process` after a timeout.
 func stopSiad(apiAddr string, process *os.Process) {
-	if err := api.NewClient(apiAddr, "").Get("/daemon/stop", nil); err != nil {
+	if err := client.New(apiAddr).DaemonStopGet(); err != nil {
 		process.Kill()
 	}
 
@@ -86,7 +86,7 @@ func stopSiad(apiAddr string, process *os.Process) {
 // waitForAPI blocks until the Sia API at apiAddr becomes available.
 // if siad returns while waiting for the api, return an error.
 func waitForAPI(apiAddr string, siad *exec.Cmd) error {
-	c := api.NewClient(apiAddr, "")
+	c := client.New(apiAddr)
 
 	exitchan := make(chan error)
 	go func() {
@@ -102,9 +102,9 @@ func waitForAPI(apiAddr string, siad *exec.Cmd) error {
 		}
 		select {
 		case err := <-exitchan:
-			return fmt.Errorf("siad exited unexpectedly while waiting for api, exited with error: %v\n", err)
+			return fmt.Errorf("siad exited unexpectedly while waiting for api, exited with error: %v", err)
 		default:
-			if err := c.Get("/consensus", nil); err == nil {
+			if _, err := c.ConsensusGet(); err == nil {
 				success = true
 			}
 		}

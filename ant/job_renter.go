@@ -15,6 +15,7 @@ import (
 	"github.com/NebulousLabs/Sia/crypto"
 	"github.com/NebulousLabs/Sia/modules"
 	"github.com/NebulousLabs/Sia/node/api"
+	"github.com/NebulousLabs/Sia/node/api/client"
 	"github.com/NebulousLabs/Sia/types"
 	"github.com/NebulousLabs/fastrand"
 )
@@ -161,7 +162,7 @@ func (r *renterJob) deleteRandom() error {
 
 	randindex := fastrand.Intn(len(r.files))
 
-	if err := r.jr.client.Post(fmt.Sprintf("/renter/delete/%v", r.files[randindex]), "", nil); err != nil {
+	if err := r.jr.client.RenterDeletePost(r.files[randindex].sourceFile); err != nil {
 		return err
 	}
 
@@ -175,10 +176,10 @@ func (r *renterJob) deleteRandom() error {
 // isFileInDownloads grabs the files currently being downloaded by the
 // renter and returns bool `true` if fileToDownload exists in the
 // download list.  It also returns the DownloadInfo for the requested `file`.
-func isFileInDownloads(client *api.Client, file modules.FileInfo) (bool, api.DownloadInfo, error) {
+func isFileInDownloads(client *client.Client, file modules.FileInfo) (bool, api.DownloadInfo, error) {
 	var dlinfo api.DownloadInfo
-	var renterDownloads api.RenterDownloadQueue
-	if err := client.Get("/renter/downloads", &renterDownloads); err != nil {
+	renterDownloads, err := client.RenterDownloadsGet()
+	if err != nil {
 		return false, dlinfo, err
 	}
 
@@ -199,8 +200,8 @@ func (r *renterJob) download() error {
 	defer r.jr.tg.Done()
 
 	// Download a random file from the renter's file list
-	var renterFiles api.RenterFiles
-	if err := r.jr.client.Get("/renter/files", &renterFiles); err != nil {
+	renterFiles, err := r.jr.client.RenterFilesGet()
+	if err != nil {
 		return fmt.Errorf("error calling /renter/files: %v", err)
 	}
 
@@ -231,8 +232,8 @@ func (r *renterJob) download() error {
 
 	log.Printf("[INFO] [renter] [%v] downloading %v to %v", r.jr.siaDirectory, fileToDownload.SiaPath, destPath)
 
-	downloadPath := fmt.Sprintf("/renter/download/%v?destination=%v", fileToDownload.SiaPath, destPath)
-	if err = r.jr.client.Get(downloadPath, nil); err != nil {
+	err = r.jr.client.RenterDownloadGet(fileToDownload.SiaPath, destPath, 0, fileToDownload.Filesize, true)
+	if err != nil {
 		return fmt.Errorf("failed in call to /renter/download: %v", err)
 	}
 
@@ -336,7 +337,7 @@ func (r *renterJob) upload() error {
 	log.Printf("[INFO] [renter] [%v] File upload preparation complete, beginning file upload.\n", r.jr.siaDirectory)
 
 	// Upload the file to the network.
-	if err := r.jr.client.Post(fmt.Sprintf("/renter/upload/%v", siapath), fmt.Sprintf("source=%v", sourcePath), nil); err != nil {
+	if err := r.jr.client.RenterUploadPost(sourcePath, siapath, 10, 20); err != nil {
 		return fmt.Errorf("unable to upload file to network: %v", err)
 	}
 	log.Printf("[INFO] [renter] [%v] /renter/upload call completed successfully.  Waiting for the upload to complete\n", r.jr.siaDirectory)
@@ -350,8 +351,8 @@ func (r *renterJob) upload() error {
 		case <-time.After(time.Second * 20):
 		}
 
-		var rfg api.RenterFiles
-		if err := r.jr.client.Get("/renter/files", &rfg); err != nil {
+		rfg, err := r.jr.client.RenterFilesGet()
+		if err != nil {
 			return fmt.Errorf("error calling /renter/files: %v", err)
 		}
 
@@ -397,7 +398,7 @@ func (j *jobRunner) storageRenter() {
 		}
 
 		// Update the wallet balance.
-		err := j.client.Get("/wallet", &walletInfo)
+		_, err := j.client.WalletGet()
 		if err != nil {
 			log.Printf("[ERROR] [renter] [%v] Trouble when calling /wallet: %v\n", j.siaDirectory, err)
 		}
@@ -408,7 +409,7 @@ func (j *jobRunner) storageRenter() {
 	start = time.Now()
 	for {
 		log.Printf("[DEBUG] [renter] [%v] Attempting to set allowance.\n", j.siaDirectory)
-		err := j.client.Post("/renter", fmt.Sprintf("funds=%v&period=%v", renterAllowance, renterAllowancePeriod), nil)
+		err := j.client.RenterPost(modules.Allowance{Funds: renterAllowance, Period: renterAllowancePeriod})
 		log.Printf("[DEBUG] [renter] [%v] Allowance attempt complete: %v\n", j.siaDirectory, err)
 		if err == nil {
 			// Success, we can exit the loop.
