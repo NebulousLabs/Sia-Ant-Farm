@@ -409,7 +409,7 @@ func (j *jobRunner) storageRenter() {
 	start = time.Now()
 	for {
 		log.Printf("[DEBUG] [renter] [%v] Attempting to set allowance.\n", j.siaDirectory)
-		err := j.client.RenterPost(modules.Allowance{Funds: renterAllowance, Period: renterAllowancePeriod})
+		err := j.client.RenterPostAllowance(modules.Allowance{Funds: renterAllowance, Period: renterAllowancePeriod})
 		log.Printf("[DEBUG] [renter] [%v] Allowance attempt complete: %v\n", j.siaDirectory, err)
 		if err == nil {
 			// Success, we can exit the loop.
