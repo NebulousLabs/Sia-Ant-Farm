@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NebulousLabs/Sia/modules"
+	"github.com/NebulousLabs/Sia/node/api/client"
 	"github.com/NebulousLabs/Sia/types"
 )
 
@@ -67,7 +68,7 @@ func (j *jobRunner) jobHost() {
 	log.Printf("[%v jobHost INFO]: succesfully performed host announcement\n", j.siaDirectory)
 
 	// Accept contracts
-	err = j.client.HostAcceptingContractsPost(true)
+	err = j.client.HostModifySettingPost(client.HostParamAcceptingContracts, true)
 	if err != nil {
 		log.Printf("[%v jobHost ERROR]: %v\n", j.siaDirectory, err)
 		return
