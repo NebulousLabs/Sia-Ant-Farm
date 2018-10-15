@@ -4,7 +4,7 @@ dependencies:
 	go get -u github.com/NebulousLabs/Sia/...
 	go install -tags='dev' github.com/NebulousLabs/Sia/cmd/siad
 	go install -race std
-	go get -u github.com/golang/lint/golint
+	go get -u golang.org/x/lint/golint
 
 pkgs = ./sia-antfarm ./ant
 
